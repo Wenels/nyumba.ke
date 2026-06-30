@@ -1,0 +1,31 @@
+# Dependencies
+node_modules/
+*/node_modules/
+
+# Env files (contain secrets)
+.env
+.env.local
+*/.env
+*/.env.local
+
+# Next.js
+.next/
+*/.next/
+out/
+
+# Prisma generated client (regenerate with bunx prisma generate)
+backend/generated/
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS
+.DS_Store
+
+# Build
+dist/
+build/
+
+# Lockfiles (optional - some teams commit these, your call)
+bun.lockb
