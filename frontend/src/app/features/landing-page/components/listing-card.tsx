@@ -1,5 +1,5 @@
+import { Bath, MapPin, MapPinned, ShieldCheck } from "lucide-react";
 import Image from "next/image";
-import { MapPin, BedDouble, Bath, ShieldCheck, MapPinned } from "lucide-react";
 
 export interface ListingCardProps {
   imageUrl: string;
@@ -43,7 +43,9 @@ export function ListingCard({
         <div className="flex items-center justify-between">
           <p className="text-lg font-bold text-secondary">
             Ksh {price.toLocaleString()}
-            <span className="text-sm font-normal text-muted-foreground">/mo</span>
+            <span className="text-sm font-normal text-muted-foreground">
+              /mo
+            </span>
           </p>
           <span className="rounded-full bg-primary/10 px-2.5 py-1 text-xs font-medium text-primary">
             {area}

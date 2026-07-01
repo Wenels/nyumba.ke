@@ -1,11 +1,18 @@
 "use client";
 
+import { MapPin, Search } from "lucide-react";
 import { useState } from "react";
-import { Search, MapPin } from "lucide-react";
-import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 
-const AREAS = ["Westlands", "Kilimani", "Karen", "Lavington", "Kasarani", "Roysambu"];
+const AREAS = [
+  "Westlands",
+  "Kilimani",
+  "Karen",
+  "Lavington",
+  "Kasarani",
+  "Roysambu",
+];
 
 export function Hero() {
   const [query, setQuery] = useState("");
@@ -25,8 +32,8 @@ export function Hero() {
         </h1>
 
         <p className="mt-6 max-w-xl text-lg text-muted-foreground">
-          Landlords pin exact locations. Tenants find homes directly. No agents. No middlemen.
-          No extra fees.
+          Landlords pin exact locations. Tenants find homes directly. No agents.
+          No middlemen. No extra fees.
         </p>
 
         <div className="mt-8 flex w-full max-w-xl gap-2">
@@ -39,7 +46,10 @@ export function Hero() {
               className="pl-9"
             />
           </div>
-          <Button size="lg" className="bg-secondary text-secondary-foreground hover:bg-secondary/90">
+          <Button
+            size="lg"
+            className="bg-secondary text-secondary-foreground hover:bg-secondary/90"
+          >
             Search
           </Button>
         </div>

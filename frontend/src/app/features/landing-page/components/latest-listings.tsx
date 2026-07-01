@@ -1,11 +1,12 @@
-import Link from "next/link";
 import { ArrowRight } from "lucide-react";
+import Link from "next/link";
 import { ListingCard, type ListingCardProps } from "./listing-card";
 
 // Placeholder data until this is wired to the real /api/listings endpoint
 const SAMPLE_LISTINGS: ListingCardProps[] = [
   {
-    imageUrl: "https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=800&q=80",
+    imageUrl:
+      "https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=800&q=80",
     price: 2500,
     bedrooms: 2,
     bathrooms: 2,
@@ -23,8 +24,12 @@ export function LatestListings() {
       <div className="mx-auto max-w-6xl">
         <div className="flex items-end justify-between">
           <div>
-            <h2 className="text-3xl font-bold tracking-tight">Latest listings</h2>
-            <p className="mt-1 text-muted-foreground">Fresh vacancies across Nairobi</p>
+            <h2 className="text-3xl font-bold tracking-tight">
+              Latest listings
+            </h2>
+            <p className="mt-1 text-muted-foreground">
+              Fresh vacancies across Nairobi
+            </p>
           </div>
           <Link
             href="/browse"
