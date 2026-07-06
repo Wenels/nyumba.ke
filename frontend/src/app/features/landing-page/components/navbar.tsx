@@ -23,7 +23,7 @@ export function Navbar() {
           <Link href="/browse" className="hover:text-secondary">
             Browse
           </Link>
-          {user && (
+          {user && (user.role === "LANDLORD" || user.role === "ADMIN") && (
             <Link href="/dashboard" className="hover:text-secondary">
               Dashboard
             </Link>

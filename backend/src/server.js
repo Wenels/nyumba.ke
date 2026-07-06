@@ -6,7 +6,8 @@ import cors from "cors";
 import pg from "pg";
 
 import authRoutes from "./routes/auth.js";
-
+import listingsRoutes from "./routes/listings.js";
+import photosRoutes from "./routes/photos.js";
 const app = express();
 const PgSession = connectPgSimple(session);
 
@@ -38,6 +39,11 @@ app.use(
 app.get("/api/health", (req, res) => res.json({ ok: true }));
 
 app.use("/api/auth", authRoutes);
+app.use("/api/listings", listingsRoutes);
+// Serve uploaded files statically
+app.use("/uploads", express.static("uploads"));
+app.use("/api/listings", photosRoutes);
+
 
 app.use((err, req, res, next) => {
   console.error(err);
