@@ -1,5 +1,5 @@
-import Link from "next/link";
 import { Home, X } from "lucide-react";
+import Link from "next/link";
 
 function InstagramIcon({ className }: { className?: string }) {
   return (
@@ -20,7 +20,14 @@ function InstagramIcon({ className }: { className?: string }) {
   );
 }
 
-const AREAS = ["Westlands", "Kilimani", "Karen", "Lavington", "Kasarani", "Roysambu"];
+const AREAS = [
+  "Westlands",
+  "Kilimani",
+  "Karen",
+  "Lavington",
+  "Kasarani",
+  "Roysambu",
+];
 
 const PLATFORM_LINKS = [
   { label: "Get started", href: "/register" },
@@ -44,8 +51,8 @@ export function Footer() {
               </span>
             </Link>
             <p className="mt-4 max-w-xs text-sm text-background/60">
-              Kenya&apos;s simplest house-hunting platform. Landlords pin exact locations.
-              Tenants find homes. No middlemen, no agents.
+              Kenya&apos;s simplest house-hunting platform. Landlords pin exact
+              locations. Tenants find homes. No middlemen, no agents.
             </p>
             <div className="mt-5 flex gap-3">
               <a
@@ -86,7 +93,10 @@ export function Footer() {
             <ul className="mt-4 space-y-3">
               {PLATFORM_LINKS.map(({ label, href }) => (
                 <li key={label}>
-                  <Link href={href} className="text-sm text-background/60 hover:text-secondary">
+                  <Link
+                    href={href}
+                    className="text-sm text-background/60 hover:text-secondary"
+                  >
                     {label}
                   </Link>
                 </li>
@@ -96,7 +106,9 @@ export function Footer() {
         </div>
 
         <div className="mt-12 flex flex-col gap-4 border-t border-background/10 pt-6 text-sm text-background/50 sm:flex-row sm:items-center sm:justify-between">
-          <span>&copy; {new Date().getFullYear()} Nyumba.ke. Built for Kenya.</span>
+          <span>
+            &copy; {new Date().getFullYear()} Nyumba.ke. Built for Kenya.
+          </span>
           <div className="flex gap-6">
             <Link href="/privacy" className="hover:text-secondary">
               Privacy
