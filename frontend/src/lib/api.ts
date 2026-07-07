@@ -72,6 +72,14 @@ export const api = {
       body: body ? JSON.stringify(body) : undefined,
     });
   },
+
+patch(path: string, body?: unknown, options?: RequestInit) {
+  return request(path, {
+    ...options,
+    method: "PATCH",
+    body: body ? JSON.stringify(body) : undefined,
+  });
+},
   delete(path: string, options?: RequestInit) {
     return request(path, { ...options, method: "DELETE" });
   },

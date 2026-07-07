@@ -3,6 +3,8 @@
 import Image from "next/image";
 import Link from "next/link";
 import { use } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Heart } from "lucide-react";
 import {
   ArrowLeft,
   Bath,
@@ -143,6 +145,8 @@ function LandlordCard({ listing }: { listing: Listing }) {
         </a>
       )}
 
+      <SaveButton listing={listing} />
+
       <p className="text-center text-xs text-muted-foreground">
         No agent fees — contact directly
       </p>
@@ -154,6 +158,54 @@ function LandlordCard({ listing }: { listing: Listing }) {
     </div>
   );
 }
+
+function SaveButton({ listing }: { listing: Listing }) {
+  const queryClient = useQueryClient();
+  const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
+
+  const { data } = useQuery({
+    queryKey: ["saved-check", listing.id],
+    queryFn: () =>
+      fetch(`${API_URL}/api/saved/${listing.id}/check`, {
+        credentials: "include",
+      }).then((r) => r.json()) as Promise<{ saved: boolean }>,
+  });
+
+  const isSaved = data?.saved ?? false;
+
+  const mutation = useMutation({
+    mutationFn: () =>
+      isSaved
+        ? fetch(`${API_URL}/api/saved/${listing.id}`, {
+            method: "DELETE",
+            credentials: "include",
+          })
+        : fetch(`${API_URL}/api/saved/${listing.id}`, {
+            method: "POST",
+            credentials: "include",
+          }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["saved-check", listing.id] });
+      queryClient.invalidateQueries({ queryKey: ["saved"] });
+    },
+  });
+
+  return (
+    <button
+      onClick={() => mutation.mutate()}
+      disabled={mutation.isPending}
+      className={`flex items-center gap-2 rounded-xl border px-4 py-2.5 text-sm font-medium transition-colors w-full justify-center ${
+        isSaved
+          ? "border-destructive/20 bg-destructive/5 text-destructive hover:bg-destructive/10"
+          : "border-border hover:border-secondary hover:text-secondary"
+      }`}
+    >
+      <Heart className={`h-4 w-4 ${isSaved ? "fill-destructive text-destructive" : ""}`} />
+      {isSaved ? "Saved" : "Save listing"}
+    </button>
+  );
+}
+
 
 function SkeletonDetail() {
   return (
