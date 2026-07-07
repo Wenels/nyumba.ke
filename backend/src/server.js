@@ -4,9 +4,10 @@ import session from "express-session";
 import connectPgSimple from "connect-pg-simple";
 import cors from "cors";
 import pg from "pg";
-
+import passwordResetRoutes from "./routes/passwordReset.js";
 import authRoutes from "./routes/auth.js";
 import listingsRoutes from "./routes/listings.js";
+import savedRoutes from "./routes/saved.js";
 import photosRoutes from "./routes/photos.js";
 const app = express();
 const PgSession = connectPgSimple(session);
@@ -40,6 +41,8 @@ app.get("/api/health", (req, res) => res.json({ ok: true }));
 
 app.use("/api/auth", authRoutes);
 app.use("/api/listings", listingsRoutes);
+app.use("/api/saved", savedRoutes);
+app.use("/api/password-reset", passwordResetRoutes);
 // Serve uploaded files statically
 app.use("/uploads", express.static("uploads"));
 app.use("/api/listings", photosRoutes);
