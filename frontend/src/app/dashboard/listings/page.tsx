@@ -53,7 +53,7 @@ export default function MyListingsPage() {
     deleteMutation.mutate(slug);
   }
 
-  const listings = data?.listings ?? [];
+  const listings: Listing[] = data?.listings ?? [];
 
   return (
     <div className="space-y-6">
@@ -98,7 +98,7 @@ export default function MyListingsPage() {
         </div>
       ) : (
         <div className="space-y-4">
-          {listings.map((listing) => {
+          {listings.map((listing: Listing) => {
             const firstPhoto = listing.photos?.[0];
             return (
               <div

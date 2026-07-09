@@ -13,9 +13,9 @@ export default function HomePage() {
       <SafetyBanner />
       <Navbar />
       <Hero />
+      <LatestListings />
       <StatsBar />
       <HowItWorks />
-      <LatestListings />
       <LandlordCta />
       <Footer />
     </main>
