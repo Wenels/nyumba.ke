@@ -2,6 +2,8 @@ import "dotenv/config";
 import express from "express";
 import session from "express-session";
 import connectPgSimple from "connect-pg-simple";
+import conversationsRoutes from "./routes/conversations.js";
+import adminRoutes from "./routes/admin.js";
 import cors from "cors";
 import pg from "pg";
 import passwordResetRoutes from "./routes/passwordReset.js";
@@ -38,7 +40,8 @@ app.use(
 );
 
 app.get("/api/health", (req, res) => res.json({ ok: true }));
-
+app.use("/api/conversations", conversationsRoutes);
+app.use("/api/admin", adminRoutes);
 app.use("/api/auth", authRoutes);
 app.use("/api/listings", listingsRoutes);
 app.use("/api/saved", savedRoutes);
