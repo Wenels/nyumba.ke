@@ -34,7 +34,7 @@ export async function getUsers(req, res) {
       verification: true,
       phoneVerified: true,
       createdAt: true,
-      _count: { select: { listings: true, conversations: true } },
+      _count: { select: { listings: true } },
     },
     orderBy: { createdAt: "desc" },
   });
@@ -74,7 +74,7 @@ export async function getAdminListings(req, res) {
 
   const listings = await prisma.listing.findMany({
     where: {
-      ...(status && { status }),
+      ...(status ? { status } : {}),
       ...(search && {
         OR: [
           { title: { contains: search, mode: "insensitive" } },
@@ -84,7 +84,14 @@ export async function getAdminListings(req, res) {
     },
     include: {
       photos: { take: 1, orderBy: { order: "asc" } },
-      landlord: { select: { id: true, fullName: true, email: true, verification: true } },
+      landlord: {
+        select: {
+          id: true,
+          fullName: true,
+          email: true,
+          verification: true,
+        },
+      },
       _count: { select: { savedBy: true, conversations: true } },
     },
     orderBy: { createdAt: "desc" },
@@ -151,6 +158,7 @@ export async function getVerifications(req, res) {
       email: true,
       phone: true,
       createdAt: true,
+      verificationDocs: true,
       _count: { select: { listings: true } },
     },
     orderBy: { createdAt: "asc" },
@@ -173,4 +181,55 @@ export async function updateVerification(req, res) {
   });
 
   res.json({ user });
+}
+
+
+
+export async function approveListing(req, res) {
+  const { id } = req.params;
+  const { action } = req.body; // "approve" or "reject"
+
+  const listing = await prisma.listing.update({
+    where: { id },
+    data: { status: action === "approve" ? "ACTIVE" : "REMOVED" },
+    include: {
+      photos: true,
+      landlord: { select: { id: true, fullName: true, email: true } },
+      _count: { select: { savedBy: true, conversations: true } },
+    },
+  });
+
+  res.json({ listing });
+}
+
+export async function getListingDetail(req, res) {
+  const { id } = req.params;
+
+  const listing = await prisma.listing.findUnique({
+    where: { id },
+    include: {
+      photos: { orderBy: { order: "asc" } },
+      landlord: {
+        select: {
+          id: true,
+          fullName: true,
+          email: true,
+          phone: true,
+          verification: true,
+          avatarUrl: true,
+          createdAt: true,
+          _count: { select: { listings: true } },
+        },
+      },
+      _count: { select: { savedBy: true, conversations: true } },
+      reports: {
+        include: {
+          reportedBy: { select: { id: true, fullName: true, email: true } },
+        },
+      },
+    },
+  });
+
+  if (!listing) return res.status(404).json({ error: "Listing not found" });
+  res.json({ listing });
 }

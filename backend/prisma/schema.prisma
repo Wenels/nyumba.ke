@@ -61,6 +61,7 @@ model User {
   reports       Report[]       @relation("ReportingUser")
   payments      Payment[]
   passwordResets PasswordReset[]
+  verificationDocs VerificationDoc[]
 }
 
 model Listing {
@@ -75,7 +76,7 @@ model Listing {
   latitude      Float
   longitude     Float
   address       String
-  status        ListingStatus @default(ACTIVE)
+  status        ListingStatus @default(PENDING)
   expiresAt     DateTime
   createdAt     DateTime      @default(now())
   updatedAt     DateTime      @updatedAt
@@ -137,16 +138,17 @@ model Message {
 }
 
 model Report {
-  id          String   @id @default(uuid())
-  listingId   String
+  id           String   @id @default(uuid())
+  listingId    String
   reportedById String
-  reason      String
-  details     String?
-  resolved    Boolean  @default(false)
-  createdAt   DateTime @default(now())
+  reason       String
+  reportType   String   @default("OTHER")
+  details      String?
+  resolved     Boolean  @default(false)
+  createdAt    DateTime @default(now())
 
-  listing     Listing  @relation(fields: [listingId], references: [id], onDelete: Cascade)
-  reportedBy  User     @relation("ReportingUser", fields: [reportedById], references: [id], onDelete: Cascade)
+  listing      Listing  @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  reportedBy   User     @relation("ReportingUser", fields: [reportedById], references: [id], onDelete: Cascade)
 }
 
 model Payment {
@@ -170,6 +172,17 @@ model PasswordReset {
   token     String   @unique
   expiresAt DateTime
   used      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+
+model VerificationDoc {
+  id        String   @id @default(uuid())
+  userId    String
+  docType   String
+  url       String
   createdAt DateTime @default(now())
 
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)

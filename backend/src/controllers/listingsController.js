@@ -161,3 +161,31 @@ export async function getMyListings(req, res) {
 
   res.json({ listings });
 }
+
+
+export async function reportListing(req, res) {
+  const { reportType, reason, details } = req.body;
+
+  const VALID_TYPES = ["SCAM", "WRONG_INFO", "ALREADY_RENTED", "INAPPROPRIATE", "OTHER"];
+
+  if (!VALID_TYPES.includes(reportType)) {
+    return res.status(400).json({ error: "Invalid report type" });
+  }
+
+  const listing = await prisma.listing.findUnique({
+    where: { id: req.params.id },
+  });
+  if (!listing) return res.status(404).json({ error: "Listing not found" });
+
+  const report = await prisma.report.create({
+    data: {
+      listingId: req.params.id,
+      reportedById: req.session.userId,
+      reportType,
+      reason: reason || reportType,
+      details,
+    },
+  });
+
+  res.status(201).json({ report });
+}
