@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import { PhotoCarousel } from "@/app/features/listings/components/photo-carousel";
 import Link from "next/link";
 import { use } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -21,6 +22,7 @@ import { useListing } from "@/app/features/listings/hooks/use-listings";
 import type { Listing } from "@/app/features/listings/hooks/use-listings";
 import { MapView } from "@/app/features/listings/components/map-view";
 
+
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
 
 function formatDate(dateStr: string) {
@@ -31,52 +33,7 @@ function formatDate(dateStr: string) {
   });
 }
 
-function PhotoGallery({ listing }: { listing: Listing }) {
-  const photos = listing.photos;
 
-  if (photos.length === 0) {
-    return (
-      <div className="relative aspect-[16/9] w-full overflow-hidden rounded-2xl bg-muted flex items-center justify-center">
-        <div className="flex flex-col items-center gap-2 text-muted-foreground">
-          <MapPin className="h-12 w-12" />
-          <span className="text-sm">No photos yet</span>
-        </div>
-      </div>
-    );
-  }
-
-  const main = photos[0];
-  const rest = photos.slice(1, 5);
-
-  return (
-    <div className="grid grid-cols-4 grid-rows-2 gap-2 h-[420px] rounded-2xl overflow-hidden">
-      <div className={`relative ${rest.length > 0 ? "col-span-2 row-span-2" : "col-span-4 row-span-2"}`}>
-        <Image
-          src={`${API_URL}${main.url}`}
-          alt={listing.title}
-          fill
-          className="object-cover"
-          priority
-        />
-      </div>
-      {rest.map((photo, i) => (
-        <div key={photo.id} className="relative col-span-1 row-span-1 overflow-hidden">
-          <Image
-            src={`${API_URL}${photo.url}`}
-            alt={`${listing.title} photo ${i + 2}`}
-            fill
-            className="object-cover"
-          />
-          {i === 3 && listing.photos.length > 5 && (
-            <div className="absolute inset-0 flex items-center justify-center bg-foreground/50 text-background text-lg font-semibold">
-              +{listing.photos.length - 5}
-            </div>
-          )}
-        </div>
-      ))}
-    </div>
-  );
-}
 
 function LandlordCard({ listing }: { listing: Listing }) {
   const { landlord } = listing;
@@ -274,7 +231,11 @@ export default function ListingPage({
         <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
           {/* Left: main content */}
           <div className="lg:col-span-2 space-y-8">
-            <PhotoGallery listing={listing} />
+            <PhotoCarousel
+  photos={listing.photos}
+  title={listing.title}
+  apiUrl={process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000"}
+/>
 
             <div>
               <div className="flex flex-wrap items-start justify-between gap-3">

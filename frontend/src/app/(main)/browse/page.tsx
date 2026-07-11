@@ -1,6 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { Suspense } from "react";
+import { useState, useEffect } from "react";
+import { useSearchParams } from "next/navigation";
 import { Search, SlidersHorizontal } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -19,7 +21,7 @@ const PROPERTY_TYPES = [
   "Studio",
 ];
 
-export default function BrowsePage() {
+function BrowseContent() {
   const [area, setArea] = useState("");
   const [activeArea, setActiveArea] = useState("");
   const [propertyType, setPropertyType] = useState("");
@@ -45,6 +47,16 @@ export default function BrowsePage() {
     setActiveArea(a);
     setArea(a);
   }
+
+const searchParams = useSearchParams();
+
+useEffect(() => {
+  const areaParam = searchParams.get("area");
+  if (areaParam) {
+    setArea(areaParam);
+    setActiveArea(areaParam);
+  }
+}, [searchParams]);
 
   return (
     <main className="flex min-h-screen flex-col">
@@ -219,5 +231,18 @@ export default function BrowsePage() {
         </div>
       </div>
     </main>
+  );
+}
+
+
+export default function BrowsePage() {
+  return (
+    <Suspense fallback={
+      <div className="flex min-h-[60vh] items-center justify-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+      </div>
+    }>
+      <BrowseContent />
+    </Suspense>
   );
 }

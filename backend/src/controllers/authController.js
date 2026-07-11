@@ -156,3 +156,26 @@ export async function requestVerification(req, res) {
 
   res.json({ ok: true });
 }
+
+
+export async function uploadVerificationDocs(req, res) {
+  if (!req.files || req.files.length === 0) {
+    return res.status(400).json({ error: "No documents uploaded" });
+  }
+
+  const docs = await prisma.verificationDoc.createMany({
+    data: req.files.map((file) => ({
+      userId: req.session.userId,
+      docType: file.fieldname,
+      url: `/uploads/${file.filename}`,
+    })),
+  });
+
+  // Set verification to pending
+  await prisma.user.update({
+    where: { id: req.session.userId },
+    data: { verification: "PENDING" },
+  });
+
+  res.status(201).json({ ok: true, count: docs.count });
+}

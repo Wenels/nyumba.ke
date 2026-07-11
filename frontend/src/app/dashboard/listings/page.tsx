@@ -14,6 +14,7 @@ import {
   Heart,
   MessageSquare,
   ImageOff,
+  CheckCircle2,
 } from "lucide-react";
 import { api, ApiError } from "@/lib/api";
 import type { Listing } from "@/app/features/listings/hooks/use-listings";
@@ -177,6 +178,27 @@ export default function MyListingsPage() {
                           Edit
                         </Button>
                       </Link>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="gap-1.5 text-muted-foreground hover:bg-muted"
+                        onClick={() => {
+                          if (confirm("Mark this listing as filled? It will be hidden from browse.")) {
+                            fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000"}/api/listings/${listing.slug}`, {
+                              method: "PATCH",
+                              headers: { "Content-Type": "application/json" },
+                              credentials: "include",
+                              body: JSON.stringify({ status: "REMOVED" }),
+                            }).then(() => {
+                              queryClient.invalidateQueries({ queryKey: ["my-listings"] });
+                              toast.success("Listing marked as filled and hidden");
+                            });
+                          }
+                        }}
+                      >
+                        <CheckCircle2 className="h-3.5 w-3.5" />
+                        Mark filled
+                      </Button>
                       <Button
                         variant="outline"
                         size="sm"
