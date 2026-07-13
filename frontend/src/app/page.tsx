@@ -13,8 +13,8 @@ export default function HomePage() {
       <SafetyBanner />
       <Navbar />
       <Hero />
-      <LatestListings />
       <StatsBar />
+      <LatestListings />
       <HowItWorks />
       <LandlordCta />
       <Footer />

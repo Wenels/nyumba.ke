@@ -39,6 +39,58 @@ enum PaymentStatus {
   FAILED
 }
 
+
+
+enum BookingStatus {
+  PENDING
+  NEED_REVIEW
+  VIEWING_SCHEDULED
+  APPROVED
+  REJECTED
+  COMPLETED
+  CANCELLED
+}
+
+enum ContractStatus {
+  PENDING
+  ACTIVE
+  EXPIRED
+  TERMINATED
+  LOCKED
+}
+
+enum PaymentScheduleStatus {
+  UPCOMING
+  DUE_SOON
+  DUE_NOW
+  OVERDUE
+  PAID
+}
+
+enum IssuePriority {
+  LOW
+  MODERATE
+  HIGH
+  CRITICAL
+}
+
+enum IssueStatus {
+  OPEN
+  IN_PROGRESS
+  RESOLVED
+  CLOSED
+}
+
+enum IssueReportedTo {
+  LANDLORD
+  ADMIN
+}
+
+
+
+
+
+
 model User {
   id            String   @id @default(uuid())
   email         String   @unique
@@ -62,6 +114,15 @@ model User {
   payments      Payment[]
   passwordResets PasswordReset[]
   verificationDocs VerificationDoc[]
+  tenantBookings    Booking[]       @relation("TenantBookings")
+  landlordBookings  Booking[]       @relation("LandlordBookings")
+  tenantContracts   Contract[]      @relation("TenantContracts")
+  landlordContracts Contract[]      @relation("LandlordContracts")
+  tenantRentPayments  RentPayment[] @relation("TenantRentPayments")
+  landlordRentPayments RentPayment[] @relation("LandlordRentPayments")
+  tenantIssues      Issue[]         @relation("TenantIssues")
+  landlordIssues    Issue[]         @relation("LandlordIssues")
+
 }
 
 model Listing {
@@ -88,6 +149,11 @@ model Listing {
   savedBy       SavedListing[]
   conversations Conversation[]
   reports       Report[]
+  bookings          Booking[]
+  contracts         Contract[]
+  issues            Issue[]
+  amenities         Amenity[]
+  conditionReport   ConditionReport?
 }
 
 model Photo {
@@ -186,4 +252,124 @@ model VerificationDoc {
   createdAt DateTime @default(now())
 
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+
+
+model Booking {
+  id              String        @id @default(uuid())
+  listingId       String
+  tenantId        String
+  landlordId      String
+  unitType        String
+  moveInDate      DateTime
+  leaseDuration   Int           @default(12)
+  viewingDate     DateTime?
+  status          BookingStatus @default(PENDING)
+  bookingFee      Int           @default(1000)
+  feePaid         Boolean       @default(false)
+  mpesaReceiptNo  String?
+  notes           String?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  listing         Listing       @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  tenant          User          @relation("TenantBookings", fields: [tenantId], references: [id], onDelete: Cascade)
+  landlord        User          @relation("LandlordBookings", fields: [landlordId], references: [id], onDelete: Cascade)
+  contract        Contract?
+}
+
+model Contract {
+  id              String         @id @default(uuid())
+  bookingId       String         @unique
+  listingId       String
+  tenantId        String
+  landlordId      String
+  unitType        String
+  monthlyRent     Int
+  securityDeposit Int
+  startDate       DateTime
+  endDate         DateTime
+  status          ContractStatus @default(PENDING)
+  signedByTenant  Boolean        @default(false)
+  signedByLandlord Boolean       @default(false)
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  booking         Booking        @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  listing         Listing        @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  tenant          User           @relation("TenantContracts", fields: [tenantId], references: [id], onDelete: Cascade)
+  landlord        User           @relation("LandlordContracts", fields: [landlordId], references: [id], onDelete: Cascade)
+  rentPayments    RentPayment[]
+}
+
+model RentPayment {
+  id              String                @id @default(uuid())
+  contractId      String
+  tenantId        String
+  landlordId      String
+  amount          Int
+  dueDate         DateTime
+  paidDate        DateTime?
+  status          PaymentScheduleStatus @default(UPCOMING)
+  mpesaReceiptNo  String?
+  cycleNumber     Int
+  createdAt       DateTime              @default(now())
+
+  contract        Contract              @relation(fields: [contractId], references: [id], onDelete: Cascade)
+  tenant          User                  @relation("TenantRentPayments", fields: [tenantId], references: [id], onDelete: Cascade)
+  landlord        User                  @relation("LandlordRentPayments", fields: [landlordId], references: [id], onDelete: Cascade)
+}
+
+model Issue {
+  id              String          @id @default(uuid())
+  listingId       String
+  tenantId        String
+  landlordId      String
+  category        String
+  subject         String
+  description     String
+  priority        IssuePriority   @default(MODERATE)
+  status          IssueStatus     @default(OPEN)
+  reportedTo      IssueReportedTo @default(LANDLORD)
+  resolvedAt      DateTime?
+  photos          IssuePhoto[]
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+
+  listing         Listing         @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  tenant          User            @relation("TenantIssues", fields: [tenantId], references: [id], onDelete: Cascade)
+  landlord        User            @relation("LandlordIssues", fields: [landlordId], references: [id], onDelete: Cascade)
+}
+
+model IssuePhoto {
+  id        String   @id @default(uuid())
+  issueId   String
+  url       String
+  createdAt DateTime @default(now())
+
+  issue     Issue    @relation(fields: [issueId], references: [id], onDelete: Cascade)
+}
+
+model Amenity {
+  id        String   @id @default(uuid())
+  listingId String
+  name      String
+  available Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  listing   Listing  @relation(fields: [listingId], references: [id], onDelete: Cascade)
+}
+
+model ConditionReport {
+  id          String   @id @default(uuid())
+  listingId   String   @unique
+  floors      Json
+  utilities   Json
+  walls       Json
+  allPassed   Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  listing     Listing  @relation(fields: [listingId], references: [id], onDelete: Cascade)
 }
