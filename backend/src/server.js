@@ -11,6 +11,11 @@ import authRoutes from "./routes/auth.js";
 import listingsRoutes from "./routes/listings.js";
 import savedRoutes from "./routes/saved.js";
 import photosRoutes from "./routes/photos.js";
+import bookingsRoutes from "./routes/bookings.js";
+import contractsRoutes from "./routes/contracts.js";
+import rentPaymentsRoutes from "./routes/rentPayments.js";
+import issuesRoutes from "./routes/issues.js";
+import amenitiesRoutes from "./routes/amenities.js";
 const app = express();
 const PgSession = connectPgSimple(session);
 
@@ -46,6 +51,12 @@ app.use("/api/auth", authRoutes);
 app.use("/api/listings", listingsRoutes);
 app.use("/api/saved", savedRoutes);
 app.use("/api/password-reset", passwordResetRoutes);
+app.use("/api/bookings", bookingsRoutes);
+app.use("/api/contracts", contractsRoutes);
+app.use("/api/rent-payments", rentPaymentsRoutes);
+app.use("/api/issues", issuesRoutes);
+app.use("/api/listings", amenitiesRoutes);
+app.use("/uploads/issues", express.static("uploads/issues"));
 // Serve uploaded files statically
 app.use("/uploads", express.static("uploads"));
 app.use("/api/listings", photosRoutes);
