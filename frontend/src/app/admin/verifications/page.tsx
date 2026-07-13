@@ -12,6 +12,22 @@ import {
   Calendar,
 } from "lucide-react";
 import { api } from "@/lib/api";
+
+interface VerificationDoc {
+  id: string;
+  url: string;
+  docType: string;
+}
+
+interface VerificationUser {
+  id: string;
+  fullName: string;
+  email: string;
+  phone?: string | null;
+  createdAt: string;
+  _count?: { listings: number };
+  verificationDocs?: VerificationDoc[];
+}
 import { Button } from "@/components/ui/button";
 
 export default function AdminVerificationsPage() {
@@ -20,7 +36,7 @@ export default function AdminVerificationsPage() {
   const { data, isLoading } = useQuery({
     queryKey: ["admin-verifications"],
     queryFn: () =>
-      api.get("/api/admin/verifications") as Promise<{ users: any[] }>,
+      api.get("/api/admin/verifications") as Promise<{ users: VerificationUser[] }>,
   });
 
   const updateMutation = useMutation({
@@ -64,7 +80,7 @@ export default function AdminVerificationsPage() {
         </div>
       ) : (
         <div className="space-y-4">
-          {users.map((u) => (
+          {users.map((u: VerificationUser) => (
             <div
               key={u.id}
               className="rounded-xl border border-background/10 bg-background/5 p-6"
@@ -158,13 +174,13 @@ export default function AdminVerificationsPage() {
               </div>
 
               {/* Uploaded docs */}
-              {u.verificationDocs?.length > 0 ? (
+              {u.verificationDocs && u.verificationDocs.length > 0 ? (
                 <div className="mt-4 border-t border-background/10 pt-4">
                   <p className="text-xs font-semibold text-background/40 uppercase tracking-wide mb-3">
                     Submitted documents
                   </p>
                   <div className="flex flex-wrap gap-2">
-                    {u.verificationDocs.map((doc: any) => (
+                    {u.verificationDocs.map((doc: VerificationDoc) => (
                       <a
                         key={doc.id}
                         href={`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000"}${doc.url}`}
