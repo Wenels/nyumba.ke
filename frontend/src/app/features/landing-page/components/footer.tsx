@@ -50,59 +50,13 @@ export function Footer() {
                 nyumba<span className="text-secondary">.ke</span>
               </span>
             </Link>
-            <p className="mt-4 max-w-xs text-sm text-background/60">
-              Kenya&apos;s simplest house-hunting platform. Landlords pin exact
-              locations. Tenants find homes. No middlemen, no agents.
-            </p>
-            <div className="mt-5 flex gap-3">
-              <a
-                href="https://twitter.com"
-                aria-label="Twitter"
-                className="flex h-9 w-9 items-center justify-center rounded-lg bg-background/10 hover:bg-background/20 transition-colors"
-              >
-                <X className="h-4 w-4" />
-              </a>
-              <a
-                href="https://instagram.com"
-                aria-label="Instagram"
-                className="flex h-9 w-9 items-center justify-center rounded-lg bg-background/10 hover:bg-background/20 transition-colors"
-              >
-                <InstagramIcon className="h-4 w-4" />
-              </a>
-            </div>
+            
+            
           </div>
 
-          <div>
-            <h3 className="text-sm font-semibold text-background">Browse</h3>
-            <ul className="mt-4 space-y-3">
-              {AREAS.map((area) => (
-                <li key={area}>
-                  <Link
-                    href={`/browse?area=${area.toLowerCase()}`}
-                    className="text-sm text-background/60 hover:text-secondary"
-                  >
-                    Houses in {area}
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          </div>
+          
 
-          <div>
-            <h3 className="text-sm font-semibold text-background">Platform</h3>
-            <ul className="mt-4 space-y-3">
-              {PLATFORM_LINKS.map(({ label, href }) => (
-                <li key={label}>
-                  <Link
-                    href={href}
-                    className="text-sm text-background/60 hover:text-secondary"
-                  >
-                    {label}
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          </div>
+          
         </div>
 
         <div className="mt-12 flex flex-col gap-4 border-t border-background/10 pt-6 text-sm text-background/50 sm:flex-row sm:items-center sm:justify-between">
