@@ -1,33 +1,41 @@
-import { ShieldCheck } from "lucide-react";
 import Link from "next/link";
 
 export function LandlordCta() {
   return (
-    <section className="bg-gradient-to-br from-secondary to-secondary/70 px-6 py-20 text-secondary-foreground">
-      <div className="mx-auto flex max-w-2xl flex-col items-center text-center">
-        <ShieldCheck className="h-9 w-9 text-secondary-foreground/80" />
-        <h2 className="mt-4 text-3xl font-bold tracking-tight">
-          Are you a landlord?
+    <section className="px-6 py-20">
+      <div className="mx-auto max-w-4xl overflow-hidden rounded-2xl bg-gradient-to-br from-primary via-primary/80 to-secondary p-12 text-center text-primary-foreground">
+        <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">
+          Start your search today.
         </h2>
-        <p className="mt-3 text-secondary-foreground/90">
-          List your vacant property for free. Pin the exact location. Reach
-          thousands of tenants directly — no agent fees.
+        <p className="mt-3 text-primary-foreground/80 max-w-xl mx-auto">
+          Join thousands of tenants who found their perfect home through our
+          verified platform. Safe, fast, and transparent.
         </p>
 
-        <div className="mt-8 flex items-center gap-6">
+        <div className="mt-8 flex flex-wrap items-center justify-center gap-4">
           <Link
-            href="/register?role=landlord"
-            className="rounded-md bg-background px-6 py-3 font-medium text-secondary hover:bg-background/90 transition-colors"
+            href="/map"
+            className="flex items-center gap-2 rounded-lg bg-background px-6 py-3 font-semibold text-primary hover:bg-background/90 transition-colors"
           >
-            List for free
+            Explore the Map
           </Link>
           <Link
-            href="/browse"
-            className="font-medium underline underline-offset-4 hover:no-underline"
+            href="/register"
+            className="flex items-center gap-2 rounded-lg border border-primary-foreground/30 bg-primary-foreground/10 px-6 py-3 font-semibold text-primary-foreground hover:bg-primary-foreground/20 transition-colors"
           >
-            Browse listings
+            Create Free Account →
           </Link>
         </div>
+
+        <p className="mt-6 text-sm text-primary-foreground/60">
+          Are you a landlord?{" "}
+          <Link
+            href="/register?role=LANDLORD"
+            className="font-semibold text-primary-foreground underline underline-offset-2 hover:no-underline"
+          >
+            List your property for free
+          </Link>
+        </p>
       </div>
     </section>
   );
