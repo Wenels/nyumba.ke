@@ -35,24 +35,48 @@ export default function VerificationPage() {
   const { user, refetchUser } = useAuth();
   const queryClient = useQueryClient();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [files, setFiles] = useState<File[]>([]);
 
   const status = user?.verification ?? "UNVERIFIED";
 
-  async function handleRequestVerification() {
+  async function handleSubmitVerification(e: React.FormEvent) {
+    e.preventDefault();
+    if (files.length === 0) {
+      toast.error("Please select at least one verification document.");
+      return;
+    }
+
     setIsSubmitting(true);
     try {
-      await api.post("/api/auth/verification/request");
+      const formData = new FormData();
+      files.forEach((file) => {
+        formData.append("docs", file);
+      });
+
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000"}/api/auth/verification/docs`,
+        {
+          method: "POST",
+          body: formData,
+          credentials: "include",
+        }
+      );
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to upload documents");
+      }
+
       await refetchUser();
       queryClient.invalidateQueries({ queryKey: ["auth-user"] });
-      toast.success("Verification requested!", {
-        description: "Our team will review your account within 24 hours.",
+      setFiles([]);
+      toast.success("Documents uploaded!", {
+        description: "Our team will review your documents within 24 hours.",
       });
-    } catch (err) {
-      const message =
-        err instanceof ApiError
-          ? (err.body as { error?: string })?.error
-          : "Something went wrong";
-      toast.error("Request failed", { description: message });
+    } catch (err: any) {
+      toast.error("Upload failed", {
+        description: err instanceof Error ? err.message : "Something went wrong",
+      });
     } finally {
       setIsSubmitting(false);
     }
@@ -153,23 +177,87 @@ export default function VerificationPage() {
             ))}
           </div>
 
+          {/* File selector input */}
+          <div className="mt-8 space-y-4">
+            <label className="block text-sm font-semibold text-foreground">
+              Upload Verification Documents (Max 5 files)
+            </label>
+            
+            <div className="flex items-center justify-center w-full">
+              <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-border rounded-xl cursor-pointer bg-muted/20 hover:bg-muted/30 transition-colors">
+                <div className="flex flex-col items-center justify-center pt-5 pb-6">
+                  <Upload className="w-8 h-8 mb-2 text-muted-foreground" />
+                  <p className="mb-1 text-sm text-muted-foreground">
+                    <span className="font-semibold">Click to upload</span> or drag and drop
+                  </p>
+                  <p className="text-xs text-muted-foreground/80">
+                    PDF, PNG, JPG or JPEG (Max 10MB per file)
+                  </p>
+                </div>
+                <input
+                  type="file"
+                  className="hidden"
+                  multiple
+                  accept=".pdf,.png,.jpg,.jpeg"
+                  onChange={(e) => {
+                    if (e.target.files) {
+                      const selectedFiles = Array.from(e.target.files);
+                      if (files.length + selectedFiles.length > 5) {
+                        toast.error("You can upload a maximum of 5 files.");
+                        return;
+                      }
+                      setFiles((prev) => [...prev, ...selectedFiles]);
+                    }
+                  }}
+                />
+              </label>
+            </div>
+
+            {/* List of selected files */}
+            {files.length > 0 && (
+              <div className="space-y-2 mt-4">
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                  Selected Files ({files.length}/5)
+                </p>
+                <div className="grid grid-cols-1 gap-2">
+                  {files.map((file, idx) => (
+                    <div
+                      key={idx}
+                      className="flex items-center justify-between p-2.5 rounded-lg border border-border bg-muted/45 text-sm"
+                    >
+                      <span className="truncate max-w-[80%] font-medium text-foreground">
+                        {file.name}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setFiles((prev) => prev.filter((_, i) => i !== idx));
+                        }}
+                        className="text-xs font-semibold text-destructive hover:underline"
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+
           <div className="mt-8 rounded-lg border border-border bg-muted/30 p-4">
             <p className="text-sm text-muted-foreground">
-              <span className="font-medium text-foreground">Note:</span> Full
-              ID upload and M-Pesa payment will be available soon. For now,
-              clicking the button below submits a verification request that our
-              team will review manually.
+              <span className="font-medium text-foreground">Note:</span> Please upload clear, readable copies of your verification documents (such as your ID/Passport, Business Registration, or title deed/utility bill for property verification).
             </p>
           </div>
 
           <div className="mt-6 flex items-center gap-4">
             <Button
-              onClick={handleRequestVerification}
-              disabled={isSubmitting}
-              className="gap-2 bg-secondary text-secondary-foreground hover:bg-secondary/90"
+              onClick={handleSubmitVerification}
+              disabled={isSubmitting || files.length === 0}
+              className="gap-2 bg-secondary text-secondary-foreground hover:bg-secondary/90 w-full sm:w-auto"
             >
               <Upload className="h-4 w-4" />
-              {isSubmitting ? "Requesting..." : "Request verification"}
+              {isSubmitting ? "Submitting..." : "Submit for Verification"}
             </Button>
           </div>
         </div>

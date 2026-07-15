@@ -69,7 +69,14 @@ export function useAuth() {
     onSuccess: (newUser) => {
       // Optimistically update the cache
       queryClient.setQueryData(["auth-user"], newUser);
-      router.push("/");
+      // Redirect to the appropriate dashboard based on role
+      if (newUser.role === "ADMIN") {
+        router.push("/admin/dashboard");
+      } else if (newUser.role === "LANDLORD") {
+        router.push("/dashboard");
+      } else {
+        router.push("/browse");
+      }
       router.refresh();
     },
   });
@@ -83,10 +90,19 @@ export function useAuth() {
       )) as AuthResponse;
       return response.user;
     },
-    onSuccess: (newUser) => {
-      // Optimistically update the cache
-      queryClient.setQueryData(["auth-user"], newUser);
-      router.push("/");
+    onSuccess: async () => {
+      // Clear the query user cache since we want them to log in manually
+      queryClient.setQueryData(["auth-user"], null);
+      try {
+        // Destroy the auto-created session on the backend
+        await api.post("/api/auth/logout");
+      } catch (err) {
+        // Ignore silent error
+      }
+      toast.success("Account created successfully!", {
+        description: "Please sign in to access your dashboard.",
+      });
+      router.push("/login");
       router.refresh();
     },
   });

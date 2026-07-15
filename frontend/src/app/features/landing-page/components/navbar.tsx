@@ -3,7 +3,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { useState, useEffect, useRef } from "react";
-import { Menu, X, LogOut, LayoutDashboard, Map, ChevronDown, Home, Building2 } from "lucide-react";
+import { Menu, X, LogOut, Map, ChevronDown, Home, Building2 } from "lucide-react";
 import { useAuth } from "@/app/features/auth/hooks/use-auth";
 
 export function Navbar() {
@@ -69,15 +69,7 @@ export function Navbar() {
           <Link href="/register?role=LANDLORD" className={`transition-colors ${textClass}`}>
             List Your Property
           </Link>
-          {user && (
-            <Link
-              href="/dashboard"
-              className={`flex items-center gap-1.5 transition-colors ${textClass}`}
-            >
-              <LayoutDashboard className="h-3.5 w-3.5" />
-              Dashboard
-            </Link>
-          )}
+
         </nav>
 
         {/* Desktop auth */}
@@ -184,13 +176,6 @@ export function Navbar() {
 
             {user ? (
               <>
-                <Link
-                  href="/dashboard"
-                  onClick={() => setOpen(false)}
-                  className="flex items-center gap-3 rounded-lg px-3 py-3 text-sm font-medium text-white/80 hover:bg-white/10 hover:text-white transition-colors"
-                >
-                  <LayoutDashboard className="h-4 w-4" /> Dashboard
-                </Link>
                 <button
                   onClick={() => { logout(); setOpen(false); }}
                   className="flex items-center gap-3 rounded-lg px-3 py-3 text-sm font-medium text-red-400 hover:bg-white/10 transition-colors"
