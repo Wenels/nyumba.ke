@@ -75,13 +75,21 @@ export function Navbar() {
         {/* Desktop auth */}
         <div className="hidden items-center gap-3 sm:flex">
           {user ? (
-            <button
-              onClick={() => logout()}
-              className="flex items-center gap-1.5 rounded-md border border-white/30 bg-white/10 px-3 py-2 text-sm font-medium text-white hover:bg-white/20 transition-colors backdrop-blur-sm"
-            >
-              <LogOut className="h-4 w-4" />
-              Log out
-            </button>
+            <>
+              <Link
+                href={user.role === "ADMIN" ? "/admin/dashboard" : user.role === "LANDLORD" ? "/dashboard" : "/tenant"}
+                className="rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:bg-primary/90 transition-colors"
+              >
+                Dashboard
+              </Link>
+              <button
+                onClick={() => logout()}
+                className="flex items-center gap-1.5 rounded-md border border-white/30 bg-white/10 px-3 py-2 text-sm font-medium text-white hover:bg-white/20 transition-colors backdrop-blur-sm"
+              >
+                <LogOut className="h-4 w-4" />
+                Log out
+              </button>
+            </>
           ) : (
             <>
               {/* Find Your Home → tenant registration */}
@@ -176,6 +184,14 @@ export function Navbar() {
 
             {user ? (
               <>
+                <Link
+                  href={user.role === "ADMIN" ? "/admin/dashboard" : user.role === "LANDLORD" ? "/dashboard" : "/tenant"}
+                  onClick={() => setOpen(false)}
+                  className="flex items-center gap-3 rounded-lg px-3 py-3 text-sm font-medium text-white/80 hover:bg-white/10 hover:text-white transition-colors"
+                >
+                  <Home className="h-4 w-4 text-primary shrink-0" />
+                  Dashboard
+                </Link>
                 <button
                   onClick={() => { logout(); setOpen(false); }}
                   className="flex items-center gap-3 rounded-lg px-3 py-3 text-sm font-medium text-red-400 hover:bg-white/10 transition-colors"

@@ -1,0 +1,186 @@
+"use client";
+
+import { useState } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
+import { format } from "date-fns";
+import { DollarSign, Clock, AlertTriangle, CheckCircle2, CalendarDays } from "lucide-react";
+import { api } from "@/lib/api";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+
+const FILTER_PILLS = ["All", "Due Soon", "Due Now", "Overdue", "Upcoming", "Paid"];
+
+export default function TenantPaymentsPage() {
+  const [activeTab, setActiveTab] = useState("Rent Schedule");
+  const [filter, setFilter] = useState("All");
+  const [phoneNumber, setPhoneNumber] = useState("");
+  const [payingId, setPayingId] = useState<string | null>(null);
+  const queryClient = useQueryClient();
+
+  const { data, isLoading } = useQuery({
+    queryKey: ["tenant-payments"],
+    queryFn: () => api.get("/api/rent-payments/tenant") as Promise<{ payments: any[]; stats: any }>,
+  });
+
+  const payMutation = useMutation({
+    mutationFn: ({ id, phone }: { id: string; phone: string }) =>
+      api.patch(`/api/rent-payments/${id}/pay`, { mpesaReceiptNo: `SIM-${Date.now()}` }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["tenant-payments"] });
+      setPayingId(null);
+      setPhoneNumber("");
+      toast.success("Payment recorded!");
+    },
+    onError: () => toast.error("Payment failed"),
+  });
+
+  const payments = data?.payments ?? [];
+  const stats = data?.stats ?? { dueOverdue: 0, totalPaid: 0, upcoming: 0, totalCycles: 0 };
+
+  const filterMap: Record<string, string> = {
+    "Due Soon": "DUE_SOON",
+    "Due Now": "DUE_NOW",
+    Overdue: "OVERDUE",
+    Upcoming: "UPCOMING",
+    Paid: "PAID",
+  };
+
+  const schedules = payments.filter((p) => p.status !== "PAID");
+  const received = payments.filter((p) => p.status === "PAID");
+  const displayPayments = activeTab === "Rent Schedule"
+    ? (filter === "All" ? schedules : schedules.filter((p) => p.status === filterMap[filter]))
+    : received;
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h1 className="text-2xl font-bold tracking-tight">Rent Payments</h1>
+        <p className="mt-1 text-muted-foreground">Track and pay your monthly rent</p>
+      </div>
+
+      {/* Stats */}
+      <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+        {[
+          { label: "Due / Overdue", value: stats.dueOverdue, icon: AlertTriangle, color: "text-secondary" },
+          { label: "Total Paid", value: `KES ${stats.totalPaid.toLocaleString()}`, icon: CheckCircle2, color: "text-primary" },
+          { label: "Upcoming", value: stats.upcoming, icon: Clock },
+          { label: "Total Cycles", value: stats.totalCycles, icon: CalendarDays },
+        ].map(({ label, value, icon: Icon, color }) => (
+          <div key={label} className="rounded-xl border border-border bg-card p-4">
+            <div className="flex items-center justify-between">
+              <p className="text-xs text-muted-foreground">{label}</p>
+              <Icon className={`h-4 w-4 ${color || "text-muted-foreground"}`} />
+            </div>
+            <p className={`mt-2 text-xl font-bold ${color || ""}`}>{value}</p>
+          </div>
+        ))}
+      </div>
+
+      {/* Tabs */}
+      <div className="flex rounded-lg border border-border bg-muted p-1 w-fit">
+        {["Rent Schedule", "Payment History"].map((tab) => (
+          <button key={tab} onClick={() => setActiveTab(tab)}
+            className={`rounded-md px-4 py-2 text-sm font-medium transition-colors ${
+              activeTab === tab ? "bg-background shadow-sm" : "text-muted-foreground hover:text-foreground"
+            }`}>{tab}</button>
+        ))}
+      </div>
+
+      {/* Filter pills (schedule only) */}
+      {activeTab === "Rent Schedule" && (
+        <div className="flex gap-2 flex-wrap">
+          {FILTER_PILLS.map((pill) => (
+            <button key={pill} onClick={() => setFilter(pill)}
+              className={`rounded-full px-3 py-1 text-xs font-semibold transition-colors ${
+                filter === pill ? "bg-primary text-primary-foreground" : "border border-border hover:border-primary"
+              }`}>{pill} {pill !== "All" && payments.filter((p) => p.status === filterMap[pill]).length > 0
+                ? `${payments.filter((p) => p.status === filterMap[pill]).length}` : ""}</button>
+          ))}
+        </div>
+      )}
+
+      {/* M-Pesa pay modal */}
+      {payingId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-foreground/50 px-4">
+          <div className="w-full max-w-sm rounded-2xl bg-background p-6 shadow-xl">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10">
+                <DollarSign className="h-5 w-5 text-primary" />
+              </div>
+              <div>
+                <p className="font-semibold">M-Pesa Payment</p>
+                <p className="text-xs text-muted-foreground">Enter your Safaricom number</p>
+              </div>
+            </div>
+            <div className="rounded-lg bg-primary/5 border border-primary/10 p-4 mb-4 text-center">
+              <p className="text-xs text-muted-foreground">AMOUNT TO PAY</p>
+              <p className="text-3xl font-bold text-primary">
+                KES {payments.find((p) => p.id === payingId)?.amount.toLocaleString()}
+              </p>
+            </div>
+            <div className="mb-4">
+              <label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Phone Number</label>
+              <div className="mt-1.5 flex gap-2">
+                <span className="flex items-center rounded-l-md border border-r-0 border-input bg-muted px-3 text-sm">🇰🇪 +254</span>
+                <Input value={phoneNumber} onChange={(e) => setPhoneNumber(e.target.value)}
+                  placeholder="7XX XXX XXX" className="rounded-l-none" />
+              </div>
+              <p className="mt-1 text-xs text-muted-foreground">A push notification will be sent to this number</p>
+            </div>
+            <div className="flex gap-3">
+              <Button variant="outline" className="flex-1" onClick={() => setPayingId(null)}>Cancel</Button>
+              <Button className="flex-1 bg-primary text-primary-foreground hover:bg-primary/90"
+                disabled={payMutation.isPending || !phoneNumber}
+                onClick={() => payMutation.mutate({ id: payingId, phone: phoneNumber })}>
+                {payMutation.isPending ? "Processing..." : "Send STK Push"}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Payments list */}
+      {isLoading ? (
+        <div className="space-y-2">
+          {[...Array(4)].map((_, i) => <div key={i} className="h-16 animate-pulse rounded-xl bg-muted" />)}
+        </div>
+      ) : displayPayments.length === 0 ? (
+        <div className="rounded-xl border border-dashed border-border p-12 text-center">
+          <CalendarDays className="mx-auto h-8 w-8 text-muted-foreground" />
+          <p className="mt-3 font-semibold">No schedules found</p>
+          <p className="mt-1 text-sm text-muted-foreground">Rent schedules appear once your contract is active</p>
+        </div>
+      ) : (
+        <div className="space-y-2">
+          {displayPayments.map((payment: any) => (
+            <div key={payment.id} className="flex items-center justify-between rounded-xl border border-border bg-card px-4 py-3">
+              <div>
+                <p className="text-sm font-medium">{payment.contract?.listing?.title}</p>
+                <p className="text-xs text-muted-foreground">
+                  Cycle {payment.cycleNumber} · Due: {format(new Date(payment.dueDate), "dd MMM yyyy")}
+                </p>
+              </div>
+              <div className="flex items-center gap-3">
+                <div className="text-right">
+                  <p className="font-semibold">KES {payment.amount.toLocaleString()}</p>
+                  <span className={`text-xs font-medium ${
+                    payment.status === "OVERDUE" ? "text-destructive" :
+                    payment.status === "DUE_NOW" ? "text-secondary" :
+                    payment.status === "PAID" ? "text-primary" : "text-muted-foreground"
+                  }`}>{payment.status.replace("_", " ")}</span>
+                </div>
+                {payment.status !== "PAID" && (
+                  <Button size="sm" onClick={() => setPayingId(payment.id)}
+                    className="bg-primary text-primary-foreground hover:bg-primary/90">
+                    Pay
+                  </Button>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}

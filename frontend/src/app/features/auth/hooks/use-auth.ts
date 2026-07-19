@@ -74,6 +74,8 @@ export function useAuth() {
         router.push("/admin/dashboard");
       } else if (newUser.role === "LANDLORD") {
         router.push("/dashboard");
+      } else if (newUser.role === "TENANT") {
+        router.push("/tenant");
       } else {
         router.push("/browse");
       }
