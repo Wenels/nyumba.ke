@@ -1,63 +1,58 @@
 "use client";
 
-import "leaflet/dist/leaflet.css";
 import {
   AlertCircle,
   Bell,
   CalendarCheck,
   CreditCard,
   DollarSign,
+  FileText,
+  Heart,
   Home,
   LayoutDashboard,
-  ListChecks,
   LogOut,
+  MapPin,
   Menu,
+  MessageSquare,
   Moon,
   PanelLeftClose,
   PanelLeftOpen,
+  Search,
   Settings,
-  ShieldCheck,
   Sun,
   User,
-  Users,
   X,
 } from "lucide-react";
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
-import { toast } from "sonner";
 import { useAuth } from "@/app/features/auth/hooks/use-auth";
 
 const NAV_ITEMS = [
-  { href: "/dashboard", icon: LayoutDashboard, label: "Overview" },
-  { href: "/dashboard/listings", icon: ListChecks, label: "My Properties" },
-  {
-    href: "/dashboard/bookings",
-    icon: CalendarCheck,
-    label: "Manage Bookings",
-  },
-  { href: "/dashboard/tenants", icon: Users, label: "Tenants" },
-  { href: "/dashboard/issues", icon: AlertCircle, label: "Issues" },
-  { href: "/dashboard/payments", icon: DollarSign, label: "Rent Payments" },
-  {
-    href: "/dashboard/transactions",
-    icon: CreditCard,
-    label: "All Transactions",
-  },
-  { href: "/dashboard/verification", icon: ShieldCheck, label: "Verification" },
-  { href: "/dashboard/settings", icon: Settings, label: "Settings" },
+  { href: "/tenant", icon: LayoutDashboard, label: "Overview" },
+  { href: "/tenant/browse", icon: Search, label: "Explore" },
+  { href: "/tenant/map", icon: MapPin, label: "Map View" },
+  { href: "/tenant/bookings", icon: CalendarCheck, label: "My Bookings" },
+  { href: "/tenant/contracts", icon: FileText, label: "My Contracts" },
+  { href: "/tenant/payments", icon: DollarSign, label: "Rent Payments" },
+  { href: "/tenant/transactions", icon: CreditCard, label: "Transactions" },
+  { href: "/tenant/issues", icon: AlertCircle, label: "Issues" },
+  { href: "/tenant/saved", icon: Heart, label: "Favorites" },
+  { href: "/tenant/inbox", icon: MessageSquare, label: "Messages" },
+  { href: "/tenant/settings", icon: Settings, label: "Settings" },
 ];
 
-function getInitials(name: string): string {
+function getInitials(name: string) {
   return name
     .split(" ")
-    .map((w) => w[0])
+    .map((n) => n[0])
     .join("")
     .toUpperCase()
     .slice(0, 2);
 }
 
-export default function DashboardLayout({
+export default function TenantLayout({
   children,
 }: {
   children: React.ReactNode;
@@ -65,36 +60,9 @@ export default function DashboardLayout({
   const pathname = usePathname();
   const router = useRouter();
   const { user, isLoading, logout } = useAuth();
-  const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [collapsed, setCollapsed] = useState(false);
   const [isDark, setIsDark] = useState(false);
-
-  // Mobile drawer nav links (always expanded)
-  const MobileNavLinks = () => (
-    <>
-      {NAV_ITEMS.map(({ href, icon: Icon, label }) => {
-        const active =
-          href === "/dashboard"
-            ? pathname === "/dashboard"
-            : pathname.startsWith(href);
-        return (
-          <Link
-            key={href}
-            href={href}
-            onClick={() => setMobileOpen(false)}
-            className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
-              active
-                ? "bg-secondary/10 text-secondary"
-                : "text-muted-foreground hover:bg-muted hover:text-foreground"
-            }`}
-          >
-            <Icon className="h-4 w-4 shrink-0" />
-            {label}
-          </Link>
-        );
-      })}
-    </>
-  );
   const [profileOpen, setProfileOpen] = useState(false);
   const profileRef = useRef<HTMLDivElement>(null);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
@@ -103,7 +71,10 @@ export default function DashboardLayout({
     "all",
   );
 
-  // Close dropdown on outside click
+  useEffect(() => {
+    if (!isLoading && !user) router.push("/login");
+  }, [isLoading, user, router]);
+
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
       if (
@@ -132,60 +103,119 @@ export default function DashboardLayout({
     }
   }, [isDark]);
 
-  useEffect(() => {
-    if (!isLoading) {
-      if (!user) {
-        router.push("/login");
-      } else if (user.role !== "LANDLORD" && user.role !== "ADMIN") {
-        toast.error("Access denied", {
-          description: "Only landlords can access the dashboard.",
-        });
-        router.push("/");
-      }
-    }
-  }, [isLoading, user, router]);
-
   if (isLoading) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-muted/30">
+      <div className="flex min-h-screen items-center justify-center">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
       </div>
     );
   }
 
-  if (!user || (user.role !== "LANDLORD" && user.role !== "ADMIN")) {
-    return null;
-  }
+  if (!user) return null;
+
+  // Nav links — icon-only when collapsed
+  const NavLinks = ({ onClick }: { onClick?: () => void }) => (
+    <>
+      {NAV_ITEMS.map(({ href, icon: Icon, label }) => {
+        const active =
+          href === "/tenant"
+            ? pathname === "/tenant"
+            : pathname.startsWith(href);
+        return (
+          <Link
+            key={href}
+            href={href}
+            onClick={onClick}
+            title={collapsed ? label : undefined}
+            className={`flex items-center rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-200 ${
+              collapsed ? "justify-center gap-0" : "gap-3"
+            } ${
+              active
+                ? "bg-primary text-primary-foreground"
+                : "text-muted-foreground hover:bg-muted hover:text-foreground"
+            }`}
+          >
+            <Icon className="h-4 w-4 shrink-0" />
+            {!collapsed && (
+              <span className="truncate transition-opacity duration-150">
+                {label}
+              </span>
+            )}
+          </Link>
+        );
+      })}
+    </>
+  );
+
+  // Mobile drawer nav links (always expanded)
+  const MobileNavLinks = () => (
+    <>
+      {NAV_ITEMS.map(({ href, icon: Icon, label }) => {
+        const active =
+          href === "/tenant"
+            ? pathname === "/tenant"
+            : pathname.startsWith(href);
+        return (
+          <Link
+            key={href}
+            href={href}
+            onClick={() => setMobileOpen(false)}
+            className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
+              active
+                ? "bg-primary text-primary-foreground"
+                : "text-muted-foreground hover:bg-muted hover:text-foreground"
+            }`}
+          >
+            <Icon className="h-4 w-4 shrink-0" />
+            {label}
+          </Link>
+        );
+      })}
+    </>
+  );
 
   return (
-    <div className="flex min-h-screen bg-muted/30">
-      {/* Sidebar */}
+    <div className="flex min-h-screen bg-muted/20">
+      {/* ——— Desktop Sidebar ——— */}
       <aside
         className={`hidden shrink-0 border-r border-border bg-background lg:flex lg:flex-col transition-all duration-300 ease-in-out ${
-          collapsed ? "w-[68px]" : "w-64"
+          collapsed ? "w-[68px]" : "w-60"
         }`}
       >
         {/* Logo + collapse toggle */}
         <div
           className={`border-b border-border py-4 flex items-center transition-all duration-300 ${
-            collapsed ? "px-3 justify-center" : "px-6 justify-between"
+            collapsed ? "px-3 justify-center" : "px-5 justify-between"
           }`}
         >
           {!collapsed && (
             <Link href="/" className="flex items-center gap-2 min-w-0">
-              <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-secondary shrink-0">
-                <Home className="h-4 w-4 text-secondary-foreground" />
-              </span>
-              <span className="font-bold min-w-0 truncate">
-                nyumba<span className="text-secondary">.ke</span>
-              </span>
+              <Image
+                src="/logo.png"
+                alt="Nyumba.ke"
+                width={28}
+                height={28}
+                className="rounded-lg shrink-0"
+              />
+              <div className="min-w-0">
+                <span className="text-sm font-bold block truncate">
+                  nyumba<span className="text-secondary">.ke</span>
+                </span>
+                <p className="text-xs text-muted-foreground truncate">
+                  Tenant Portal
+                </p>
+              </div>
             </Link>
           )}
           {collapsed && (
             <Link href="/" title="Nyumba.ke">
-              <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-secondary">
-                <Home className="h-4 w-4 text-secondary-foreground" />
-              </span>
+              <Image
+                src="/logo.png"
+                alt="Nyumba.ke"
+                width={28}
+                height={28}
+                className="rounded-lg"
+              />
             </Link>
           )}
           <button
@@ -206,13 +236,22 @@ export default function DashboardLayout({
 
         {/* User info */}
         {!collapsed && (
-          <div className="border-b border-border px-6 py-4">
-            <p className="text-sm font-semibold truncate">{user?.fullName}</p>
-            <p className="text-xs text-muted-foreground truncate">
-              {user?.email}
-            </p>
-            <span className="mt-1.5 inline-block rounded-full bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary capitalize font-medium">
-              {user?.role.toLowerCase()}
+          <div className="border-b border-border px-5 py-4">
+            <div className="flex items-center gap-3">
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground text-sm font-bold">
+                {getInitials(user.fullName)}
+              </div>
+              <div className="min-w-0">
+                <p className="text-sm font-semibold truncate">
+                  {user.fullName}
+                </p>
+                <p className="text-xs text-muted-foreground truncate">
+                  {user.email}
+                </p>
+              </div>
+            </div>
+            <span className="mt-2 inline-block rounded-full bg-secondary/10 px-2.5 py-0.5 text-xs font-medium text-secondary capitalize">
+              {user.role.toLowerCase()}
             </span>
           </div>
         )}
@@ -222,42 +261,20 @@ export default function DashboardLayout({
           <div className="border-b border-border py-3 flex justify-center">
             <div
               className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground text-sm font-bold"
-              title={user?.fullName}
+              title={user.fullName}
             >
-              {getInitials(user?.fullName || "U")}
+              {getInitials(user.fullName)}
             </div>
           </div>
         )}
 
         {/* Nav */}
-        <nav className={`flex-1 space-y-1 py-4 ${collapsed ? "px-2" : "px-3"}`}>
-          {NAV_ITEMS.map(({ href, icon: Icon, label }) => {
-            const active =
-              href === "/dashboard"
-                ? pathname === "/dashboard"
-                : pathname.startsWith(href);
-            return (
-              <Link
-                key={href}
-                href={href}
-                title={collapsed ? label : undefined}
-                className={`flex items-center rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-200 ${
-                  collapsed ? "justify-center gap-0" : "gap-3"
-                } ${
-                  active
-                    ? "bg-secondary/10 text-secondary"
-                    : "text-muted-foreground hover:bg-muted hover:text-foreground"
-                }`}
-              >
-                <Icon className="h-4 w-4 shrink-0" />
-                {!collapsed && (
-                  <span className="truncate transition-opacity duration-150">
-                    {label}
-                  </span>
-                )}
-              </Link>
-            );
-          })}
+        <nav
+          className={`flex-1 overflow-y-auto space-y-0.5 py-4 ${
+            collapsed ? "px-2" : "px-3"
+          }`}
+        >
+          <NavLinks />
         </nav>
 
         {/* Logout */}
@@ -293,9 +310,13 @@ export default function DashboardLayout({
         <div className="fixed inset-y-0 left-0 z-50 w-64 bg-background border-r border-border flex flex-col lg:hidden">
           <div className="flex items-center justify-between border-b border-border px-5 py-4">
             <Link href="/" className="flex items-center gap-2">
-              <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-secondary shrink-0">
-                <Home className="h-4 w-4 text-secondary-foreground" />
-              </span>
+              <Image
+                src="/logo.png"
+                alt="Nyumba.ke"
+                width={24}
+                height={24}
+                className="rounded-lg"
+              />
               <span className="text-sm font-bold">
                 nyumba<span className="text-secondary">.ke</span>
               </span>
@@ -322,11 +343,11 @@ export default function DashboardLayout({
         </div>
       )}
 
-      {/* Main content */}
-      <div className="flex flex-1 flex-col">
-        {/* ——— Desktop Top Navbar ——— */}
+      {/* ——— Main content ——— */}
+      <div className="flex flex-1 flex-col min-w-0">
+        {/* Desktop Top Navbar */}
         <header className="hidden lg:flex items-center justify-between border-b border-border bg-background px-6 py-3">
-          {/* Left: Brand + Subtitle */}
+          {/* Left: Brand */}
           <div className="flex items-center gap-3">
             <div className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-secondary to-primary shadow-sm">
               <Home className="h-4 w-4 text-white" />
@@ -336,12 +357,12 @@ export default function DashboardLayout({
                 nyumba<span className="text-secondary">.ke</span>
               </p>
               <p className="text-[11px] text-muted-foreground font-medium">
-                Landlord Portal
+                Tenant Portal
               </p>
             </div>
           </div>
 
-          {/* Right: Theme toggle + Bell + User */}
+          {/* Right: Theme + Bell + User */}
           <div className="flex items-center gap-2">
             {/* Theme toggle */}
             <button
@@ -366,11 +387,9 @@ export default function DashboardLayout({
                 aria-label="Notifications"
               >
                 <Bell className="h-[18px] w-[18px]" />
-                {/* Dot indicator for unread */}
                 <span className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-red-500 ring-2 ring-background" />
               </button>
 
-              {/* Notifications Dropdown */}
               {notificationsOpen && (
                 <div className="absolute right-0 top-full mt-2 w-80 rounded-xl border border-border bg-background shadow-lg py-2 z-50 animate-in fade-in slide-in-from-top-2 duration-150">
                   <div className="flex items-center justify-between px-4 pb-2 border-b border-border">
@@ -432,7 +451,7 @@ export default function DashboardLayout({
             {/* Divider */}
             <div className="mx-1 h-8 w-px bg-border" />
 
-            {/* User info + Avatar (clickable dropdown) */}
+            {/* User avatar + dropdown */}
             <div className="relative" ref={profileRef}>
               <button
                 type="button"
@@ -452,19 +471,18 @@ export default function DashboardLayout({
                 </div>
               </button>
 
-              {/* Dropdown */}
               {profileOpen && (
                 <div className="absolute right-0 top-full mt-2 w-48 rounded-xl border border-border bg-background shadow-lg py-1.5 z-50 animate-in fade-in slide-in-from-top-2 duration-150">
                   <Link
-                    href="/dashboard/profile"
+                    href="/tenant/profile"
                     onClick={() => setProfileOpen(false)}
                     className="flex items-center gap-3 px-4 py-2.5 text-sm font-medium text-foreground hover:bg-muted transition-colors"
                   >
                     <User className="h-4 w-4 text-muted-foreground" />
-                    Profile
+                    Profile Info
                   </Link>
                   <Link
-                    href="/dashboard/settings"
+                    href="/tenant/settings"
                     onClick={() => setProfileOpen(false)}
                     className="flex items-center gap-3 px-4 py-2.5 text-sm font-medium text-foreground hover:bg-muted transition-colors"
                   >
@@ -528,7 +546,6 @@ export default function DashboardLayout({
                 <span className="absolute top-1.5 right-1.5 h-1.5 w-1.5 rounded-full bg-red-500 ring-2 ring-background" />
               </button>
 
-              {/* Mobile Notifications Dropdown */}
               {notificationsOpen && (
                 <div className="absolute right-0 top-full mt-2 w-72 rounded-xl border border-border bg-background shadow-lg py-2 z-50 animate-in fade-in slide-in-from-top-2 duration-150">
                   <div className="flex items-center justify-between px-4 pb-2 border-b border-border">
@@ -595,7 +612,8 @@ export default function DashboardLayout({
           </div>
         </header>
 
-        <main className="flex-1 px-6 py-8 max-w-5xl mx-auto w-full">
+        {/* Page content */}
+        <main className="flex-1 overflow-auto px-6 py-6 max-w-6xl mx-auto w-full">
           {children}
         </main>
       </div>
