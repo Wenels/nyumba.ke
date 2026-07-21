@@ -160,7 +160,7 @@ export default function InboxPage() {
                 </Link>
               </div>
             ) : (
-              conversations.map((conv) => {
+              conversations.map((conv: Conversation) => {
                 const other =
                   conv.tenantId === user.id ? conv.landlord : conv.tenant;
                 const lastMsg = conv.messages[0];
@@ -262,7 +262,7 @@ export default function InboxPage() {
 
               {/* Messages */}
               <div className="flex-1 overflow-y-auto space-y-4 p-4">
-                {activeConversation.messages.map((msg) => {
+                {activeConversation.messages.map((msg: Message) => {
                   const isMe = msg.sender.id === user.id;
                   return (
                     <div
