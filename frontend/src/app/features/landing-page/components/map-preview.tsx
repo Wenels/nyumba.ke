@@ -58,7 +58,7 @@ export function MapPreview() {
   }, []);
 
   return (
-    <section className="px-6 py-20 bg-muted/30">
+    <section className="relative z-0 isolate px-6 py-20 bg-muted/30">
       <div className="mx-auto max-w-5xl">
         <div className="flex items-end justify-between mb-8">
           <div>
@@ -79,7 +79,7 @@ export function MapPreview() {
 
         <div
           ref={mapRef}
-          className="h-80 w-full rounded-2xl border border-border overflow-hidden shadow-md"
+          className="relative z-0 h-80 w-full rounded-2xl border border-border overflow-hidden shadow-md"
         />
 
         <div className="mt-4 sm:hidden">
