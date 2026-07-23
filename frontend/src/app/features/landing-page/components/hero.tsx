@@ -1,7 +1,6 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { ShieldCheck } from "lucide-react";
 
 export function Hero() {
   const router = useRouter();
@@ -19,12 +18,6 @@ export function Hero() {
       <div className="absolute inset-0 bg-foreground/75" />
 
       <div className="relative z-10 mx-auto w-full max-w-6xl px-6 py-20">
-        {/* Verified pill */}
-        <div className="mb-6 inline-flex items-center gap-2 rounded-full bg-primary px-4 py-1.5 text-sm font-semibold text-primary-foreground">
-          <ShieldCheck className="h-4 w-4" />
-          VERIFIED LISTINGS ONLY
-        </div>
-
         {/* Headline — left aligned, large */}
         <h1 className="max-w-2xl text-5xl font-bold leading-tight tracking-tight text-background sm:text-6xl lg:text-7xl">
           Find your next
@@ -39,18 +32,18 @@ export function Hero() {
 
         {/* CTA buttons */}
         <div className="mt-8 flex flex-wrap items-center gap-4">
-          <button
-            onClick={() => router.push("/browse")}
-            className="flex items-center gap-2 rounded-lg bg-secondary px-6 py-3 font-semibold text-secondary-foreground hover:bg-secondary/90 transition-colors"
-          >
-            Browse Listings →
-          </button>
           <a
             href="#how-it-works"
             className="rounded-lg border border-background/40 bg-background/10 px-6 py-3 font-semibold text-background backdrop-blur-sm hover:bg-background/20 transition-colors"
           >
             How It Works
           </a>
+          <button
+            onClick={() => router.push("/browse")}
+            className="flex items-center gap-2 rounded-lg bg-secondary px-6 py-3 font-semibold text-secondary-foreground hover:bg-secondary/90 transition-colors"
+          >
+            Browse Listings →
+          </button>
         </div>
 
         {/* Landlord link */}

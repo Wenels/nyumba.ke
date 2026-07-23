@@ -10,7 +10,7 @@ import type { Listing } from "@/app/features/listings/hooks/use-listings";
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
 
 export function LatestListings() {
-  const { data, isLoading } = useQuery({
+  const { data, isLoading } = useQuery<{ listings: Listing[] }>({
     queryKey: ["latest-listings"],
     queryFn: () =>
       api.get("/api/listings?status=ACTIVE") as Promise<{ listings: Listing[] }>,
@@ -46,11 +46,11 @@ export function LatestListings() {
           </div>
         ) : (
           <div className="mt-10 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
-            {listings.map((listing) => {
+            {listings.map((listing: Listing) => {
               const firstPhoto = listing.photos?.[0];
               return (
                 <Link key={listing.id} href={`/listings/${listing.slug}`} className="group block">
-                  <div className="overflow-hidden rounded-xl border border-border bg-card transition-shadow hover:shadow-md">
+                  <div className="overflow-hidden rounded-xl border border-border bg-card transition-all hover:shadow-md hover:border-primary/30 flex flex-col">
                     <div className="relative aspect-[4/3]">
                       {firstPhoto ? (
                         <Image
@@ -72,7 +72,7 @@ export function LatestListings() {
                         </span>
                       )}
                     </div>
-                    <div className="p-4">
+                    <div className="flex flex-col flex-1 p-4">
                       <div className="flex items-start justify-between gap-2">
                         <p className="text-lg font-bold text-secondary">
                           Ksh {listing.price.toLocaleString()}
@@ -95,6 +95,13 @@ export function LatestListings() {
                         <span className="flex items-center gap-1">
                           <Bath className="h-3.5 w-3.5" />
                           {listing.bathrooms} bath
+                        </span>
+                      </div>
+
+                      {/* CTA Button */}
+                      <div className="mt-4 pt-3 border-t border-border">
+                        <span className="flex w-full items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground transition-all group-hover:bg-primary/90 group-hover:gap-3">
+                          View Property <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
                         </span>
                       </div>
                     </div>
