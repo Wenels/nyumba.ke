@@ -4,12 +4,25 @@ export async function getTenantContracts(req, res) {
   const contracts = await prisma.contract.findMany({
     where: { tenantId: req.session.userId },
     include: {
-      listing: { select: { id: true, title: true, slug: true, address: true, photos: { take: 1 } } },
+      property: { select: { id: true, name: true, slug: true, address: true, photos: { take: 1 } } },
+      unit: { select: { id: true, unitNumber: true, floor: true } },
       landlord: { select: { id: true, fullName: true, email: true, phone: true } },
-      booking: { select: { id: true, unitType: true, moveInDate: true } },
+      booking: { select: { id: true, moveInDate: true } },
     },
     orderBy: { createdAt: "desc" },
   });
+
+  const formatted = contracts.map((c) => ({
+    ...c,
+    listing: {
+      id: c.property.id,
+      title: c.property.name,
+      slug: c.property.slug,
+      address: c.property.address,
+      photos: c.property.photos,
+    },
+    unitNumber: c.unit?.unitNumber,
+  }));
 
   const stats = {
     total: contracts.length,
@@ -18,29 +31,42 @@ export async function getTenantContracts(req, res) {
     locked: contracts.filter((c) => c.status === "LOCKED").length,
   };
 
-  res.json({ contracts, stats });
+  res.json({ contracts: formatted, stats });
 }
 
 export async function getLandlordContracts(req, res) {
   const contracts = await prisma.contract.findMany({
     where: { landlordId: req.session.userId },
     include: {
-      listing: { select: { id: true, title: true, slug: true, address: true } },
+      property: { select: { id: true, name: true, slug: true, address: true } },
+      unit: { select: { id: true, unitNumber: true, floor: true } },
       tenant: { select: { id: true, fullName: true, email: true, phone: true } },
-      booking: { select: { id: true, unitType: true, moveInDate: true } },
+      booking: { select: { id: true, moveInDate: true } },
       rentPayments: { orderBy: { dueDate: "asc" } },
     },
     orderBy: { createdAt: "desc" },
   });
 
-  res.json({ contracts });
+  const formatted = contracts.map((c) => ({
+    ...c,
+    listing: {
+      id: c.property.id,
+      title: c.property.name,
+      slug: c.property.slug,
+      address: c.property.address,
+    },
+    unitNumber: c.unit?.unitNumber,
+  }));
+
+  res.json({ contracts: formatted });
 }
 
 export async function getContract(req, res) {
   const contract = await prisma.contract.findUnique({
     where: { id: req.params.id },
     include: {
-      listing: { select: { id: true, title: true, slug: true, address: true } },
+      property: { select: { id: true, name: true, slug: true, address: true } },
+      unit: { select: { id: true, unitNumber: true, floor: true } },
       tenant: { select: { id: true, fullName: true, email: true, phone: true } },
       landlord: { select: { id: true, fullName: true, email: true, phone: true } },
       booking: true,
@@ -53,7 +79,18 @@ export async function getContract(req, res) {
     return res.status(403).json({ error: "Forbidden" });
   }
 
-  res.json({ contract });
+  const formatted = {
+    ...contract,
+    listing: {
+      id: contract.property.id,
+      title: contract.property.name,
+      slug: contract.property.slug,
+      address: contract.property.address,
+    },
+    unitNumber: contract.unit?.unitNumber,
+  };
+
+  res.json({ contract: formatted });
 }
 
 export async function signContract(req, res) {
@@ -76,9 +113,17 @@ export async function signContract(req, res) {
       data: { status: "ACTIVE" },
     });
 
+    // Mark assigned unit as OCCUPIED
+    if (contract.unitId) {
+      await prisma.unit.update({
+        where: { id: contract.unitId },
+        data: { status: "OCCUPIED" },
+      });
+    }
+
     // Generate rent payment schedule
     const months = Math.ceil(
-      (new Date(contract.endDate) - new Date(contract.startDate)) / (1000 * 60 * 60 * 24 * 30)
+      (new Date(contract.endDate).getTime() - new Date(contract.startDate).getTime()) / (1000 * 60 * 60 * 24 * 30)
     );
 
     const schedules = [];

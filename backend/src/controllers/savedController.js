@@ -1,10 +1,10 @@
 import { prisma } from "../lib/prisma.js";
 
 export async function getSaved(req, res) {
-  const saved = await prisma.savedListing.findMany({
+  const saved = await prisma.savedProperty.findMany({
     where: { userId: req.session.userId },
     include: {
-      listing: {
+      property: {
         include: {
           photos: { orderBy: { order: "asc" } },
           landlord: {
@@ -15,6 +15,7 @@ export async function getSaved(req, res) {
               avatarUrl: true,
             },
           },
+          unitTypes: true,
           _count: { select: { savedBy: true } },
         },
       },
@@ -22,45 +23,58 @@ export async function getSaved(req, res) {
     orderBy: { createdAt: "desc" },
   });
 
-  res.json({ saved: saved.map((s) => s.listing) });
+  const formatted = saved.map((s) => {
+    const p = s.property;
+    const minRent = p.unitTypes.length > 0 ? Math.min(...p.unitTypes.map((u) => u.monthlyRent)) : 0;
+    const primaryUnitType = p.unitTypes[0];
+    return {
+      ...p,
+      title: p.name,
+      price: minRent,
+      bedrooms: primaryUnitType?.bedroomCount || 1,
+      bathrooms: primaryUnitType?.bathrooms || 1,
+    };
+  });
+
+  res.json({ saved: formatted });
 }
 
 export async function saveListing(req, res) {
-  const { listingId } = req.params;
+  const listingId = req.params.listingId || req.params.propertyId;
 
-  const listing = await prisma.listing.findUnique({ where: { id: listingId } });
-  if (!listing) return res.status(404).json({ error: "Listing not found" });
+  const property = await prisma.property.findUnique({ where: { id: listingId } });
+  if (!property) return res.status(404).json({ error: "Property not found" });
 
-  const existing = await prisma.savedListing.findUnique({
-    where: { userId_listingId: { userId: req.session.userId, listingId } },
+  const existing = await prisma.savedProperty.findUnique({
+    where: { userId_propertyId: { userId: req.session.userId, propertyId: listingId } },
   });
 
   if (existing) {
     return res.status(409).json({ error: "Already saved" });
   }
 
-  await prisma.savedListing.create({
-    data: { userId: req.session.userId, listingId },
+  await prisma.savedProperty.create({
+    data: { userId: req.session.userId, propertyId: listingId },
   });
 
   res.status(201).json({ ok: true });
 }
 
 export async function unsaveListing(req, res) {
-  const { listingId } = req.params;
+  const listingId = req.params.listingId || req.params.propertyId;
 
-  await prisma.savedListing.deleteMany({
-    where: { userId: req.session.userId, listingId },
+  await prisma.savedProperty.deleteMany({
+    where: { userId: req.session.userId, propertyId: listingId },
   });
 
   res.json({ ok: true });
 }
 
 export async function checkSaved(req, res) {
-  const { listingId } = req.params;
+  const listingId = req.params.listingId || req.params.propertyId;
 
-  const saved = await prisma.savedListing.findUnique({
-    where: { userId_listingId: { userId: req.session.userId, listingId } },
+  const saved = await prisma.savedProperty.findUnique({
+    where: { userId_propertyId: { userId: req.session.userId, propertyId: listingId } },
   });
 
   res.json({ saved: !!saved });

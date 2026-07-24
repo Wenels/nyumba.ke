@@ -135,13 +135,13 @@ export default function IssuesPage() {
                 </div>
                 <div className="flex flex-col gap-2 shrink-0">
                   {issue.status === "OPEN" && (
-                    <Button size="sm" onClick={() => updateMutation.mutate({ id: issue.id, status: "IN_PROGRESS" })}
+                    <Button size="sm" loading={updateMutation.isPending} onClick={() => updateMutation.mutate({ id: issue.id, status: "IN_PROGRESS" })}
                       className="bg-primary text-primary-foreground hover:bg-primary/90">
                       Start Work
                     </Button>
                   )}
                   {issue.status === "IN_PROGRESS" && (
-                    <Button size="sm" onClick={() => updateMutation.mutate({ id: issue.id, status: "RESOLVED" })}
+                    <Button size="sm" loading={updateMutation.isPending} onClick={() => updateMutation.mutate({ id: issue.id, status: "RESOLVED" })}
                       className="bg-primary text-primary-foreground hover:bg-primary/90">
                       Mark Resolved
                     </Button>

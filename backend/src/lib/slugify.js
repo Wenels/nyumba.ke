@@ -14,7 +14,7 @@ export async function generateUniqueSlug(prisma, title) {
   let count = 1;
 
   while (true) {
-    const existing = await prisma.listing.findUnique({ where: { slug } });
+    const existing = await prisma.property.findUnique({ where: { slug } });
     if (!existing) break;
     slug = `${base}-${count}`;
     count++;

@@ -176,9 +176,9 @@ export default function TenantSettingsPage() {
                       {errors[field] && <p className="mt-1 text-xs text-destructive">{errors[field]?.message}</p>}
                     </div>
                   ))}
-                  <Button type="submit" disabled={isSubmitting}
+                  <Button type="submit" loading={isSubmitting}
                     className="gap-2 bg-primary text-primary-foreground hover:bg-primary/90">
-                    <ShieldCheck className="h-4 w-4" />
+                    {!isSubmitting && <ShieldCheck className="h-4 w-4" />}
                     {isSubmitting ? "Changing..." : "Change Password"}
                   </Button>
                 </form>
@@ -219,16 +219,15 @@ export default function TenantSettingsPage() {
                     { key: "contractUpdates" as const, label: "Contract & Document Updates", desc: "Contract signatures, document uploads, and related activities", color: "bg-purple-500" },
                     { key: "systemAlerts" as const, label: "System Alerts", desc: "Important system notifications and security alerts", color: "bg-destructive" },
                   ].map(({ key, label, desc, color }) => (
-                    <div key={key} className="flex items-center justify-between rounded-lg border border-border px-4 py-3">
-                      <div className="flex items-center gap-3">
-                        <span className={`h-2 w-2 rounded-full ${color}`} />
-                        <div>
-                          <p className="text-sm font-medium">{label}</p>
-                          <p className="text-xs text-muted-foreground">{desc}</p>
+                      <div key={key} className="flex items-center justify-between rounded-lg border border-border bg-card hover:bg-primary/5 px-4 py-3 transition-colors duration-200 ease-in-out hover:shadow-md">
+                        <div className="flex items-center gap-3">
+                          <div>
+                            <p className="text-sm font-medium">{label}</p>
+                            <p className="text-xs text-muted-foreground font-mono">{desc}</p>
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  ))}
+                    ))}
                 </div>
               </div>
 

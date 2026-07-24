@@ -267,7 +267,8 @@ export default function TenantIssuesPage() {
               <div className="flex gap-3 pt-2">
                 <Button variant="outline" className="flex-1" onClick={() => setShowModal(false)}>Cancel</Button>
                 <Button className="flex-1 bg-primary text-primary-foreground hover:bg-primary/90"
-                  disabled={createMutation.isPending || !form.listingId || !form.category || !form.subject || !form.description}
+                  loading={createMutation.isPending}
+                  disabled={!form.listingId || !form.category || !form.subject || !form.description}
                   onClick={() => createMutation.mutate()}>
                   {createMutation.isPending ? "Submitting..." : "Submit Issue"}
                 </Button>

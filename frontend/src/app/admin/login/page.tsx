@@ -97,7 +97,7 @@ export default function AdminLoginPage() {
 
           <Button
             type="submit"
-            disabled={isLoggingIn}
+            loading={isLoggingIn}
             className="w-full bg-secondary text-secondary-foreground hover:bg-secondary/90"
             size="lg"
           >

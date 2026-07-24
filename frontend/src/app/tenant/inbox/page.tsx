@@ -313,11 +313,12 @@ export default function InboxPage() {
                   <Button
                     type="button"
                     onClick={handleSend}
-                    disabled={sendMutation.isPending || !messageText.trim()}
+                    loading={sendMutation.isPending}
+                    disabled={!messageText.trim()}
                     className="bg-secondary text-secondary-foreground hover:bg-secondary/90"
                     size="icon"
                   >
-                    <Send className="h-4 w-4" />
+                    {!sendMutation.isPending && <Send className="h-4 w-4" />}
                   </Button>
                 </div>
               </div>

@@ -1,50 +1,103 @@
 import { prisma } from "../lib/prisma.js";
 
 export async function createBooking(req, res) {
-  const { listingId, unitType, moveInDate, leaseDuration, viewingDate } = req.body;
+  const { propertyId, listingId, unitTypeId, unitType, unitId, moveInDate, leaseDuration, viewingDate } = req.body;
 
-  if (!listingId || !unitType || !moveInDate) {
-    return res.status(400).json({ error: "listingId, unitType and moveInDate are required" });
+  const targetPropertyId = propertyId || listingId;
+  if (!targetPropertyId || (!unitTypeId && !unitType) || !moveInDate) {
+    return res.status(400).json({ error: "propertyId, unitTypeId (or unitType) and moveInDate are required" });
   }
 
-  const listing = await prisma.listing.findUnique({ where: { id: listingId } });
-  if (!listing) return res.status(404).json({ error: "Listing not found" });
-  if (listing.landlordId === req.session.userId) {
-    return res.status(400).json({ error: "You cannot book your own listing" });
+  const property = await prisma.property.findUnique({
+    where: { id: targetPropertyId },
+    include: { unitTypes: true },
+  });
+
+  if (!property) return res.status(404).json({ error: "Property not found" });
+  if (property.landlordId === req.session.userId) {
+    return res.status(400).json({ error: "You cannot book your own property" });
+  }
+
+  // Resolve unitTypeId
+  let resolvedUnitTypeId = unitTypeId;
+  if (!resolvedUnitTypeId && unitType) {
+    const match = property.unitTypes.find((ut) => ut.label.toLowerCase() === String(unitType).toLowerCase());
+    resolvedUnitTypeId = match ? match.id : property.unitTypes[0]?.id;
+  }
+
+  if (!resolvedUnitTypeId) {
+    return res.status(400).json({ error: "Invalid unit type specified for this property" });
   }
 
   const booking = await prisma.booking.create({
     data: {
-      listingId,
+      propertyId: targetPropertyId,
+      unitTypeId: resolvedUnitTypeId,
+      unitId: unitId || null,
       tenantId: req.session.userId,
-      landlordId: listing.landlordId,
-      unitType,
+      landlordId: property.landlordId,
       moveInDate: new Date(moveInDate),
       leaseDuration: leaseDuration || 12,
       viewingDate: viewingDate ? new Date(viewingDate) : null,
     },
     include: {
-      listing: { select: { id: true, title: true, slug: true, address: true, price: true } },
+      property: { select: { id: true, name: true, slug: true, address: true } },
+      unitType: { select: { id: true, label: true, monthlyRent: true } },
+      unit: { select: { id: true, unitNumber: true, floor: true } },
       tenant: { select: { id: true, fullName: true, email: true, phone: true } },
     },
   });
 
-  res.status(201).json({ booking });
+  // Attach backward compatible fields
+  const formatted = {
+    ...booking,
+    listing: {
+      id: booking.property.id,
+      title: booking.property.name,
+      slug: booking.property.slug,
+      address: booking.property.address,
+      price: booking.unitType.monthlyRent,
+    },
+    unitType: booking.unitType.label,
+  };
+
+  res.status(201).json({ booking: formatted });
 }
 
 export async function getTenantBookings(req, res) {
   const bookings = await prisma.booking.findMany({
     where: { tenantId: req.session.userId },
     include: {
-      listing: {
-        select: { id: true, title: true, slug: true, address: true, price: true, photos: { take: 1, orderBy: { order: "asc" } } },
+      property: {
+        select: {
+          id: true,
+          name: true,
+          slug: true,
+          address: true,
+          photos: { take: 1, orderBy: { order: "asc" } },
+        },
       },
+      unitType: { select: { id: true, label: true, monthlyRent: true } },
+      unit: { select: { id: true, unitNumber: true, floor: true } },
       contract: { select: { id: true, status: true } },
     },
     orderBy: { createdAt: "desc" },
   });
 
-  res.json({ bookings });
+  const formatted = bookings.map((b) => ({
+    ...b,
+    listing: {
+      id: b.property.id,
+      title: b.property.name,
+      slug: b.property.slug,
+      address: b.property.address,
+      price: b.unitType.monthlyRent,
+      photos: b.property.photos,
+    },
+    unitType: b.unitType.label,
+  }));
+
+  res.json({ bookings: formatted });
 }
 
 export async function getLandlordBookings(req, res) {
@@ -56,12 +109,29 @@ export async function getLandlordBookings(req, res) {
       ...(status && { status }),
     },
     include: {
-      listing: { select: { id: true, title: true, slug: true, address: true } },
+      property: { select: { id: true, name: true, slug: true, address: true } },
+      unitType: {
+        include: {
+          units: true,
+        },
+      },
+      unit: { select: { id: true, unitNumber: true, floor: true } },
       tenant: { select: { id: true, fullName: true, email: true, phone: true } },
       contract: { select: { id: true, status: true } },
     },
     orderBy: { createdAt: "desc" },
   });
+
+  const formatted = bookings.map((b) => ({
+    ...b,
+    listing: {
+      id: b.property.id,
+      title: b.property.name,
+      slug: b.property.slug,
+      address: b.property.address,
+    },
+    unitType: b.unitType.label,
+  }));
 
   const stats = {
     total: bookings.length,
@@ -70,16 +140,24 @@ export async function getLandlordBookings(req, res) {
     viewings: bookings.filter((b) => b.status === "VIEWING_SCHEDULED").length,
   };
 
-  res.json({ bookings, stats });
+  res.json({ bookings: formatted, stats });
 }
 
 export async function getBooking(req, res) {
   const booking = await prisma.booking.findUnique({
     where: { id: req.params.id },
     include: {
-      listing: {
-        select: { id: true, title: true, slug: true, address: true, price: true, photos: { take: 1, orderBy: { order: "asc" } } },
+      property: {
+        select: {
+          id: true,
+          name: true,
+          slug: true,
+          address: true,
+          photos: { take: 1, orderBy: { order: "asc" } },
+        },
       },
+      unitType: true,
+      unit: true,
       tenant: { select: { id: true, fullName: true, email: true, phone: true } },
       landlord: { select: { id: true, fullName: true, email: true, phone: true } },
       contract: true,
@@ -92,44 +170,93 @@ export async function getBooking(req, res) {
     return res.status(403).json({ error: "Forbidden" });
   }
 
-  res.json({ booking });
+  const formatted = {
+    ...booking,
+    listing: {
+      id: booking.property.id,
+      title: booking.property.name,
+      slug: booking.property.slug,
+      address: booking.property.address,
+      price: booking.unitType.monthlyRent,
+      photos: booking.property.photos,
+    },
+    unitType: booking.unitType.label,
+  };
+
+  res.json({ booking: formatted });
 }
 
 export async function updateBookingStatus(req, res) {
-  const { status, notes } = req.body;
-  const booking = await prisma.booking.findUnique({ where: { id: req.params.id } });
+  const { status, notes, unitId } = req.body;
+  const booking = await prisma.booking.findUnique({
+    where: { id: req.params.id },
+    include: { unitType: { include: { units: true } } },
+  });
 
   if (!booking) return res.status(404).json({ error: "Booking not found" });
   if (booking.landlordId !== req.session.userId && !req.session.isAdmin) {
     return res.status(403).json({ error: "Forbidden" });
   }
 
+  // Resolve assigned unit
+  let assignedUnitId = unitId || booking.unitId;
+
+  // If landlord didn't pick a specific unit, auto-pick the first VACANT unit in this UnitType
+  if (status === "APPROVED" && !assignedUnitId) {
+    const vacantUnit = booking.unitType.units.find((u) => u.status === "VACANT");
+    if (vacantUnit) {
+      assignedUnitId = vacantUnit.id;
+    }
+  }
+
   const updated = await prisma.booking.update({
     where: { id: req.params.id },
-    data: { status, ...(notes && { notes }) },
+    data: {
+      status,
+      ...(notes && { notes }),
+      ...(assignedUnitId && { unitId: assignedUnitId }),
+    },
+    include: {
+      property: true,
+      unitType: true,
+      unit: true,
+    },
   });
 
-  // Auto-create contract when approved
-  if (status === "APPROVED" && !booking.contract) {
-    const listing = await prisma.listing.findUnique({ where: { id: booking.listingId } });
-    const startDate = new Date(booking.moveInDate);
-    const endDate = new Date(startDate);
-    endDate.setMonth(endDate.getMonth() + booking.leaseDuration);
+  // On approval, mark assigned unit as RESERVED and auto-generate contract
+  if (status === "APPROVED") {
+    if (assignedUnitId) {
+      await prisma.unit.update({
+        where: { id: assignedUnitId },
+        data: { status: "RESERVED" },
+      });
+    }
 
-    await prisma.contract.create({
-      data: {
-        bookingId: booking.id,
-        listingId: booking.listingId,
-        tenantId: booking.tenantId,
-        landlordId: booking.landlordId,
-        unitType: booking.unitType,
-        monthlyRent: listing.price,
-        securityDeposit: listing.price,
-        startDate,
-        endDate,
-        status: "PENDING",
-      },
-    });
+    if (!booking.contract && assignedUnitId) {
+      const assignedUnit = await prisma.unit.findUnique({ where: { id: assignedUnitId } });
+      const rent = assignedUnit?.rentOverride || booking.unitType.monthlyRent;
+      const deposit = booking.unitType.securityDeposit;
+
+      const startDate = new Date(booking.moveInDate);
+      const endDate = new Date(startDate);
+      endDate.setMonth(endDate.getMonth() + booking.leaseDuration);
+
+      await prisma.contract.create({
+        data: {
+          bookingId: booking.id,
+          propertyId: booking.propertyId,
+          unitTypeId: booking.unitTypeId,
+          unitId: assignedUnitId,
+          tenantId: booking.tenantId,
+          landlordId: booking.landlordId,
+          monthlyRent: rent,
+          securityDeposit: deposit,
+          startDate,
+          endDate,
+          status: "PENDING",
+        },
+      });
+    }
   }
 
   res.json({ booking: updated });
@@ -146,6 +273,14 @@ export async function cancelBooking(req, res) {
     where: { id: req.params.id },
     data: { status: "CANCELLED" },
   });
+
+  // If a unit was assigned, make it VACANT again
+  if (booking.unitId) {
+    await prisma.unit.update({
+      where: { id: booking.unitId },
+      data: { status: "VACANT" },
+    });
+  }
 
   res.json({ booking: updated });
 }

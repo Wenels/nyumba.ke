@@ -258,50 +258,67 @@ export default function PostListingPage() {
   async function handleFinalSubmit() {
     setIsSubmitting(true);
     try {
-      // 1. Prepare main listing parameters
-      const listingPayload = {
-        title: propertyName || "Unnamed Property",
-        description: description || "No description provided.",
-        price: unitTypes[0]?.rent || 0,
-        bedrooms: parseInt(unitTypes[0]?.type.split(" ")[0]) || 1,
-        bathrooms: 1,
+      const unitTypesPayload = unitTypes.map((ut) => {
+        const bedMatch = ut.type.match(/(\d+)/);
+        const count = bedMatch ? parseInt(bedMatch[1]) : (ut.type.toLowerCase().includes("studio") ? 0 : 1);
+        return {
+          label: ut.type,
+          bedroomCount: count,
+          bathrooms: 1,
+          monthlyRent: ut.rent,
+          securityDeposit: ut.deposit,
+          description: `${ut.type} unit category in ${propertyName}`,
+        };
+      });
+
+      const unitsPayload = vacancies.map((v) => ({
+        unitTypeLabel: v.unitType,
+        unitNumber: v.unitNumber,
+        floor: parseInt(v.floor) || 1,
+        doorNumber: v.doorNumber,
+        status: v.status.toUpperCase() === "VACANT" ? "VACANT" : "OCCUPIED",
+        rentOverride: v.rentOverride ? parseInt(v.rentOverride) : undefined,
+        description: v.notes,
+      }));
+
+      const propertyPayload = {
+        name: propertyName || "Unnamed Property",
         propertyType: propertyType || "Apartment",
-        address: `${street}, ${estate}, ${town}`,
+        description: description || "No description provided.",
+        address: `${street ? `${street}, ` : ""}${estate ? `${estate}, ` : ""}${town || county || "Nairobi"}`,
+        county: county || "Nairobi",
+        town: town || "Nairobi",
+        estate,
+        ward,
+        street,
+        postalCode,
         latitude: lat,
         longitude: lng,
-        // Additional custom parameters
-        meta: {
-          county,
-          town,
-          estate,
-          ward,
-          postalCode,
-          totalUnits: parseInt(totalUnits) || 0,
-          totalFloors: parseInt(totalFloors) || 0,
-          management: {
-            type: managementType,
-            agentName,
-            agentContact,
-            legalName,
-            idNumber,
-          },
-          rules,
-          unitTypes,
-          vacancies,
-        },
+        totalFloors: parseInt(totalFloors) || 1,
+        totalUnits: parseInt(totalUnits) || vacancies.length || 1,
+        managementType,
+        agentName,
+        agentContact,
+        legalName,
+        idNumber,
+        contractType,
+        rules: rules.filter((r) => r.trim() !== ""),
+        unitTypes: unitTypesPayload,
+        units: unitsPayload,
       };
 
-      const res = (await api.post("/api/listings", listingPayload)) as {
-        listing: { id: string; slug: string };
+      const res = (await api.post("/api/properties", propertyPayload)) as {
+        property?: { id: string };
+        listing?: { id: string };
       };
-      const { id } = res.listing;
+      const id = res.property?.id || res.listing?.id;
 
       // 2. Upload Property Photos
-      if (photos.length > 0) {
+      if (id && photos.length > 0) {
         const formData = new FormData();
         photos.forEach((photo) => formData.append("photos", photo));
         await fetch(
-          `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000"}/api/listings/${id}/photos`,
+          `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000"}/api/properties/${id}/photos`,
           {
             method: "POST",
             body: formData,
@@ -310,40 +327,15 @@ export default function PostListingPage() {
         );
       }
 
-      // 3. Upload Supporting Documents
-      const docFiles = [
-        { file: titleDeed, type: "TITLE_DEED" },
-        { file: landRates, type: "LAND_RATES" },
-        { file: utilityBill, type: "UTILITY_BILL" },
-        { file: customContract, type: "LEASE_CONTRACT" },
-      ].filter((d) => d.file !== null);
-
-      if (docFiles.length > 0) {
-        const docFormData = new FormData();
-        docFiles.forEach((doc) => {
-          if (doc.file) {
-            docFormData.append(doc.type, doc.file);
-          }
-        });
-        await fetch(
-          `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000"}/api/listings/${id}/documents`,
-          {
-            method: "POST",
-            body: docFormData,
-            credentials: "include",
-          }
-        );
-      }
-
       toast.success("Property created!", {
-        description: "Your listing wizard has successfully completed.",
+        description: "Your 3-tier Property, Unit Categories, and Rooms have been listed.",
       });
       router.push("/dashboard/listings");
     } catch (err) {
       if (err instanceof ApiError) {
         const body = err.body as { error?: string };
-        toast.error("Failed to post listing", {
-          description: body?.error || "Something went wrong.",
+        toast.error("Failed to post property", {
+          description: typeof body?.error === "string" ? body.error : "Something went wrong.",
         });
       } else {
         toast.error("Could not reach the server");
@@ -1169,7 +1161,7 @@ export default function PostListingPage() {
         ) : (
           <Button
             type="button"
-            disabled={isSubmitting}
+            loading={isSubmitting}
             onClick={handleFinalSubmit}
             className="gap-1.5 bg-primary text-primary-foreground hover:bg-primary/90"
           >

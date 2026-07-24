@@ -35,8 +35,9 @@ const DEFAULT_CONDITION = {
 };
 
 export async function getAmenities(req, res) {
-  const amenities = await prisma.amenity.findMany({
-    where: { listingId: req.params.listingId },
+  const propertyId = req.params.listingId || req.params.propertyId;
+  const amenities = await prisma.propertyAmenity.findMany({
+    where: { propertyId },
     orderBy: { name: "asc" },
   });
 
@@ -44,51 +45,51 @@ export async function getAmenities(req, res) {
 }
 
 export async function upsertAmenities(req, res) {
-  const { listingId } = req.params;
+  const propertyId = req.params.listingId || req.params.propertyId;
   const { amenities } = req.body;
 
-  const listing = await prisma.listing.findUnique({ where: { id: listingId } });
-  if (!listing) return res.status(404).json({ error: "Listing not found" });
-  if (listing.landlordId !== req.session.userId && !req.session.isAdmin) {
+  const property = await prisma.property.findUnique({ where: { id: propertyId } });
+  if (!property) return res.status(404).json({ error: "Property not found" });
+  if (property.landlordId !== req.session.userId && !req.session.isAdmin) {
     return res.status(403).json({ error: "Forbidden" });
   }
 
-  // Delete existing and recreate
-  await prisma.amenity.deleteMany({ where: { listingId } });
+  await prisma.propertyAmenity.deleteMany({ where: { propertyId } });
 
-  const created = await prisma.amenity.createMany({
+  await prisma.propertyAmenity.createMany({
     data: amenities.map((a) => ({
-      listingId,
+      propertyId,
       name: a.name,
       available: a.available ?? true,
     })),
   });
 
-  const all = await prisma.amenity.findMany({ where: { listingId } });
+  const all = await prisma.propertyAmenity.findMany({ where: { propertyId } });
   res.json({ amenities: all });
 }
 
-export async function initDefaultAmenities(listingId) {
-  await prisma.amenity.createMany({
-    data: DEFAULT_AMENITIES.map((name) => ({ listingId, name, available: true })),
+export async function initDefaultAmenities(propertyId) {
+  await prisma.propertyAmenity.createMany({
+    data: DEFAULT_AMENITIES.map((name) => ({ propertyId, name, available: true })),
   });
 }
 
 export async function getConditionReport(req, res) {
-  const report = await prisma.conditionReport.findUnique({
-    where: { listingId: req.params.listingId },
+  const propertyId = req.params.listingId || req.params.propertyId;
+  const report = await prisma.propertyConditionReport.findUnique({
+    where: { propertyId },
   });
 
   res.json({ report: report || null });
 }
 
 export async function upsertConditionReport(req, res) {
-  const { listingId } = req.params;
+  const propertyId = req.params.listingId || req.params.propertyId;
   const { floors, utilities, walls } = req.body;
 
-  const listing = await prisma.listing.findUnique({ where: { id: listingId } });
-  if (!listing) return res.status(404).json({ error: "Listing not found" });
-  if (listing.landlordId !== req.session.userId && !req.session.isAdmin) {
+  const property = await prisma.property.findUnique({ where: { id: propertyId } });
+  if (!property) return res.status(404).json({ error: "Property not found" });
+  if (property.landlordId !== req.session.userId && !req.session.isAdmin) {
     return res.status(403).json({ error: "Forbidden" });
   }
 
@@ -98,10 +99,10 @@ export async function upsertConditionReport(req, res) {
     ...(walls?.items || []),
   ].every((item) => item.status === "No issues");
 
-  const report = await prisma.conditionReport.upsert({
-    where: { listingId },
+  const report = await prisma.propertyConditionReport.upsert({
+    where: { propertyId },
     update: { floors, utilities, walls, allPassed },
-    create: { listingId, floors: floors || DEFAULT_CONDITION.floors, utilities: utilities || DEFAULT_CONDITION.utilities, walls: walls || DEFAULT_CONDITION.walls, allPassed },
+    create: { propertyId, floors: floors || DEFAULT_CONDITION.floors, utilities: utilities || DEFAULT_CONDITION.utilities, walls: walls || DEFAULT_CONDITION.walls, allPassed },
   });
 
   res.json({ report });

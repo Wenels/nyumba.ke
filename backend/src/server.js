@@ -49,6 +49,7 @@ app.use("/api/conversations", conversationsRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/auth", authRoutes);
 app.use("/api/listings", listingsRoutes);
+app.use("/api/properties", listingsRoutes);
 app.use("/api/saved", savedRoutes);
 app.use("/api/password-reset", passwordResetRoutes);
 app.use("/api/bookings", bookingsRoutes);
@@ -56,11 +57,11 @@ app.use("/api/contracts", contractsRoutes);
 app.use("/api/rent-payments", rentPaymentsRoutes);
 app.use("/api/issues", issuesRoutes);
 app.use("/api/listings", amenitiesRoutes);
+app.use("/api/properties", amenitiesRoutes);
 app.use("/uploads/issues", express.static("uploads/issues"));
-// Serve uploaded files statically
 app.use("/uploads", express.static("uploads"));
 app.use("/api/listings", photosRoutes);
-
+app.use("/api/properties", photosRoutes);
 
 app.use((err, req, res, next) => {
   console.error(err);

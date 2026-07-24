@@ -38,7 +38,7 @@ function CountUpNumber({
     }
 
     let startTimestamp: number | null = null;
-    const duration = 6000; // 1.8 seconds smooth animation
+    const duration = 6000; // 6 seconds smooth animation
 
     let animationFrameId: number;
 

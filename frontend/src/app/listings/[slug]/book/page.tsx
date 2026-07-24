@@ -1,14 +1,14 @@
 "use client";
 
-import { use, useState } from "react";
-import { useRouter } from "next/navigation";
+import { use, useState, useEffect } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import {
   ArrowLeft, CheckCircle2, ChevronRight,
-  Home, MapPin, DollarSign, Phone,
+  Home, MapPin, DollarSign, Phone, Key
 } from "lucide-react";
 import { api, ApiError } from "@/lib/api";
 import { useAuth } from "@/app/features/auth/hooks/use-auth";
@@ -20,7 +20,7 @@ const LEASE_DURATIONS = [6, 12, 18, 24, 36];
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
 
 const STEPS = [
-  { num: 1, label: "Unit & Room" },
+  { num: 1, label: "Unit Category" },
   { num: 2, label: "Schedule" },
   { num: 3, label: "Review" },
 ];
@@ -28,10 +28,11 @@ const STEPS = [
 export default function BookListingPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = use(params);
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { user } = useAuth();
 
   const [step, setStep] = useState(1);
-  const [unitType, setUnitType] = useState("");
+  const [selectedUnitTypeId, setSelectedUnitTypeId] = useState<string>("");
   const [moveInDate, setMoveInDate] = useState("");
   const [leaseDuration, setLeaseDuration] = useState(12);
   const [viewingDate, setViewingDate] = useState("");
@@ -41,9 +42,24 @@ export default function BookListingPage({ params }: { params: Promise<{ slug: st
 
   const { data, isLoading } = useQuery({
     queryKey: ["listings", slug],
-    queryFn: () => api.get(`/api/listings/${slug}`) as Promise<{ listing: any }>,
+    queryFn: () => api.get(`/api/listings/${slug}`) as Promise<{ listing: any; property: any }>,
     enabled: !!slug,
   });
+
+  const property = data?.property || data?.listing;
+  const unitTypes = property?.unitTypes || [];
+
+  useEffect(() => {
+    const paramUnitTypeId = searchParams.get("unitTypeId");
+    if (paramUnitTypeId && unitTypes.length > 0) {
+      const match = unitTypes.find((ut: any) => ut.id === paramUnitTypeId);
+      if (match) setSelectedUnitTypeId(match.id);
+    } else if (unitTypes.length > 0 && !selectedUnitTypeId) {
+      setSelectedUnitTypeId(unitTypes[0].id);
+    }
+  }, [searchParams, unitTypes, selectedUnitTypeId]);
+
+  const selectedUnitType = unitTypes.find((ut: any) => ut.id === selectedUnitTypeId) || unitTypes[0];
 
   const bookingMutation = useMutation({
     mutationFn: (data: any) => api.post("/api/bookings", data),
@@ -60,12 +76,10 @@ export default function BookListingPage({ params }: { params: Promise<{ slug: st
   const payMutation = useMutation({
     mutationFn: () => Promise.resolve({ ok: true }),
     onSuccess: () => {
-      toast.success("Booking confirmed!", { description: "The landlord will review and contact you." });
+      toast.success("Booking confirmed!", { description: "The landlord will review and assign your unit." });
       router.push("/tenant/bookings");
     },
   });
-
-  const listing = data?.listing;
 
   if (!user) {
     return (
@@ -86,17 +100,17 @@ export default function BookListingPage({ params }: { params: Promise<{ slug: st
     );
   }
 
-  if (!listing) {
+  if (!property) {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center">
-        <p>Listing not found</p>
+        <p>Property not found</p>
         <Link href="/browse" className="mt-4 text-primary hover:underline">← Back to browse</Link>
       </div>
     );
   }
 
   function canProceed() {
-    if (step === 1) return !!unitType;
+    if (step === 1) return !!selectedUnitTypeId;
     if (step === 2) return !!moveInDate;
     return true;
   }
@@ -105,8 +119,8 @@ export default function BookListingPage({ params }: { params: Promise<{ slug: st
     if (!canProceed()) { toast.error("Please fill all required fields"); return; }
     if (step === 3) {
       bookingMutation.mutate({
-        listingId: listing.id,
-        unitType,
+        propertyId: property.id,
+        unitTypeId: selectedUnitType?.id,
         moveInDate: new Date(moveInDate).toISOString(),
         leaseDuration,
         viewingDate: viewingDate ? new Date(viewingDate).toISOString() : undefined,
@@ -115,11 +129,6 @@ export default function BookListingPage({ params }: { params: Promise<{ slug: st
     }
     setStep(s => s + 1);
   }
-
-  const UNIT_TYPES = [
-    listing.propertyType,
-    ...(listing.bedrooms > 1 ? [`${listing.bedrooms} Bedroom`] : []),
-  ].filter((v, i, a) => a.indexOf(v) === i);
 
   return (
     <div className="min-h-screen bg-muted/20">
@@ -132,7 +141,7 @@ export default function BookListingPage({ params }: { params: Promise<{ slug: st
                 <Phone className="h-5 w-5 text-primary" />
               </div>
               <div>
-                <p className="font-semibold">M-Pesa Payment</p>
+                <p className="font-semibold">M-Pesa Booking Fee</p>
                 <p className="text-xs text-muted-foreground">Enter your Safaricom number</p>
               </div>
             </div>
@@ -158,7 +167,8 @@ export default function BookListingPage({ params }: { params: Promise<{ slug: st
 
             <Button
               className="w-full bg-primary text-primary-foreground hover:bg-primary/90 gap-2"
-              disabled={payMutation.isPending || !phoneNumber}
+              loading={payMutation.isPending}
+              disabled={!phoneNumber}
               onClick={() => payMutation.mutate()}>
               {payMutation.isPending ? "Processing..." : "Send STK Push"}
             </Button>
@@ -175,8 +185,8 @@ export default function BookListingPage({ params }: { params: Promise<{ slug: st
 
         {/* Header */}
         <div className="mb-6">
-          <h1 className="text-2xl font-bold">Add New Booking</h1>
-          <p className="text-sm text-muted-foreground">Fill in the details to book this property</p>
+          <h1 className="text-2xl font-bold">New Booking Request</h1>
+          <p className="text-sm text-muted-foreground">Reserve your unit in {property.name || property.title}</p>
         </div>
 
         {/* Progress steps */}
@@ -209,49 +219,61 @@ export default function BookListingPage({ params }: { params: Promise<{ slug: st
             <Home className="h-5 w-5 text-primary" />
           </div>
           <div className="min-w-0">
-            <p className="font-semibold truncate">{listing.title}</p>
+            <p className="font-semibold truncate">{property.name || property.title}</p>
             <p className="flex items-center gap-1 text-xs text-muted-foreground">
-              <MapPin className="h-3 w-3" />{listing.address}
+              <MapPin className="h-3 w-3" />{property.address}
             </p>
           </div>
         </div>
 
         {/* Step content */}
         <div className="rounded-2xl border border-border bg-card p-6 space-y-5">
-          {/* STEP 1 — Unit & Room */}
+          {/* STEP 1 — Unit Category */}
           {step === 1 && (
             <>
               <div>
-                <h2 className="text-xl font-bold">Choose Your Unit</h2>
-                <p className="text-sm text-muted-foreground">Select unit type, then pick your specific room</p>
+                <h2 className="text-xl font-bold">Choose Unit Category</h2>
+                <p className="text-sm text-muted-foreground">Select the unit type you wish to rent.</p>
               </div>
 
               <div>
                 <div className="flex items-center gap-2 mb-2">
                   <span className="flex h-6 w-6 items-center justify-center rounded-full bg-primary text-primary-foreground text-xs font-bold">A</span>
-                  <Label className="text-sm font-semibold">Unit Type</Label>
+                  <Label className="text-sm font-semibold">Available Categories</Label>
                 </div>
                 <div className="space-y-2">
-                  {UNIT_TYPES.map((type) => (
-                    <button key={type} onClick={() => setUnitType(type)}
-                      className={`w-full flex items-center justify-between rounded-lg border-2 px-4 py-3 text-sm font-medium transition-colors ${
-                        unitType === type ? "border-primary bg-primary/5" : "border-border hover:border-primary/50"
-                      }`}>
-                      <span>{type}</span>
-                      <span className="text-muted-foreground">KSh {listing.price.toLocaleString()}/mo</span>
-                    </button>
-                  ))}
+                  {unitTypes.map((ut: any) => {
+                    const isSelected = selectedUnitTypeId === ut.id;
+                    const vacantCount = ut.units?.filter((u: any) => u.status === "VACANT")?.length || 0;
+                    return (
+                      <button key={ut.id} onClick={() => setSelectedUnitTypeId(ut.id)}
+                        className={`w-full flex items-center justify-between rounded-xl border-2 p-4 text-left transition-colors ${
+                          isSelected ? "border-primary bg-primary/5 shadow-sm" : "border-border hover:border-primary/50"
+                        }`}>
+                        <div>
+                          <p className="font-bold text-foreground text-base">{ut.label}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {ut.bedroomCount === 0 ? "Studio" : `${ut.bedroomCount} Bedroom`} • {ut.bathrooms} Bath • <span className="text-primary font-medium">{vacantCount} vacant</span>
+                          </p>
+                        </div>
+                        <div className="text-right">
+                          <p className="font-extrabold text-secondary text-base">KSh {ut.monthlyRent.toLocaleString()}</p>
+                          <p className="text-[11px] text-muted-foreground">/month</p>
+                        </div>
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
 
-              {unitType && (
+              {selectedUnitType && (
                 <div className="rounded-xl border border-border bg-muted/30 p-4 space-y-2">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Selection Summary</p>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Category Pricing Summary</p>
                   <div className="grid grid-cols-2 gap-3 text-sm">
-                    <div><p className="text-xs text-muted-foreground">Unit Type</p><p className="font-semibold">{unitType}</p></div>
-                    <div><p className="text-xs text-muted-foreground">Floor</p><p className="font-semibold">Floor 1</p></div>
-                    <div><p className="text-xs text-muted-foreground">Monthly Rent</p><p className="font-semibold">KSh {listing.price.toLocaleString()}</p></div>
-                    <div><p className="text-xs text-muted-foreground">Deposit</p><p className="font-semibold">KSh {listing.price.toLocaleString()}</p></div>
+                    <div><p className="text-xs text-muted-foreground">Category</p><p className="font-semibold">{selectedUnitType.label}</p></div>
+                    <div><p className="text-xs text-muted-foreground">Monthly Rent</p><p className="font-semibold">KSh {selectedUnitType.monthlyRent.toLocaleString()}</p></div>
+                    <div><p className="text-xs text-muted-foreground">Security Deposit</p><p className="font-semibold">KSh {selectedUnitType.securityDeposit.toLocaleString()}</p></div>
+                    <div><p className="text-xs text-muted-foreground">Vacant Units</p><p className="font-semibold text-primary">{selectedUnitType.units?.filter((u: any) => u.status === "VACANT")?.length || 0} ready</p></div>
                   </div>
                 </div>
               )}
@@ -321,10 +343,10 @@ export default function BookListingPage({ params }: { params: Promise<{ slug: st
                   Booking Details
                 </p>
                 {[
-                  ["Unit Type", unitType],
-                  ["Floor", "Floor 1"],
-                  ["Monthly Rent", `KSh ${listing.price.toLocaleString()}`],
-                  ["Security Deposit", `KSh ${listing.price.toLocaleString()}`],
+                  ["Building", property.name || property.title],
+                  ["Unit Category", selectedUnitType?.label],
+                  ["Monthly Rent", `KSh ${selectedUnitType?.monthlyRent.toLocaleString()}`],
+                  ["Security Deposit", `KSh ${selectedUnitType?.securityDeposit.toLocaleString()}`],
                   ["Move-in Date", moveInDate ? format(new Date(moveInDate), "dd MMMM yyyy") : "-"],
                   ["Lease Duration", `${leaseDuration} months`],
                   ...(viewingDate ? [["Viewing", format(new Date(viewingDate), "dd MMM yyyy, HH:mm")]] : []),
@@ -350,7 +372,7 @@ export default function BookListingPage({ params }: { params: Promise<{ slug: st
               <div className="grid grid-cols-2 gap-3">
                 {[
                   { n: "1", label: "Pay booking fee", desc: "KES 1,000 via M-Pesa" },
-                  { n: "2", label: "Landlord reviews", desc: "Within 24 hours" },
+                  { n: "2", label: "Landlord assigns unit", desc: "Selects specific room & approves" },
                   { n: "3", label: "Sign contract", desc: "Pay rent & deposit" },
                   { n: "4", label: "Move in!", desc: "On your chosen date" },
                 ].map(({ n, label, desc }) => (
@@ -379,7 +401,8 @@ export default function BookListingPage({ params }: { params: Promise<{ slug: st
 
           <Button
             onClick={handleNext}
-            disabled={!canProceed() || bookingMutation.isPending}
+            loading={step === 3 && bookingMutation.isPending}
+            disabled={!canProceed()}
             className="gap-2 bg-primary text-primary-foreground hover:bg-primary/90">
             {step === 3
               ? (bookingMutation.isPending ? "Processing..." : "Pay Booking Fee Now")

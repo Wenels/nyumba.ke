@@ -6,8 +6,11 @@ export async function getTenantRentPayments(req, res) {
     include: {
       contract: {
         select: {
-          id: true, unitType: true,
-          listing: { select: { id: true, title: true, address: true } },
+          id: true,
+          monthlyRent: true,
+          property: { select: { id: true, name: true, address: true } },
+          unitType: { select: { id: true, label: true, bedroomCount: true } },
+          unit: { select: { id: true, unitNumber: true, floor: true } },
         },
       },
     },
@@ -30,8 +33,11 @@ export async function getLandlordRentPayments(req, res) {
     include: {
       contract: {
         select: {
-          id: true, unitType: true,
-          listing: { select: { id: true, title: true, address: true } },
+          id: true,
+          monthlyRent: true,
+          property: { select: { id: true, name: true, address: true } },
+          unitType: { select: { id: true, label: true, bedroomCount: true } },
+          unit: { select: { id: true, unitNumber: true, floor: true } },
           tenant: { select: { id: true, fullName: true, phone: true } },
         },
       },

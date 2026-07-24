@@ -1,14 +1,14 @@
 import { prisma } from "../lib/prisma.js";
 
 export async function getStats(req, res) {
-  const [users, listings, reports, pendingVerifications] = await Promise.all([
+  const [users, properties, reports, pendingVerifications] = await Promise.all([
     prisma.user.count(),
-    prisma.listing.count({ where: { status: "ACTIVE" } }),
+    prisma.property.count(),
     prisma.report.count({ where: { resolved: false } }),
     prisma.user.count({ where: { verification: "PENDING" } }),
   ]);
 
-  res.json({ stats: { users, listings, reports, pendingVerifications } });
+  res.json({ stats: { users, listings: properties, reports, pendingVerifications } });
 }
 
 export async function getUsers(req, res) {
@@ -34,7 +34,7 @@ export async function getUsers(req, res) {
       verification: true,
       phoneVerified: true,
       createdAt: true,
-      _count: { select: { listings: true } },
+      _count: { select: { properties: true } },
     },
     orderBy: { createdAt: "desc" },
   });
@@ -70,15 +70,17 @@ export async function deleteUser(req, res) {
 }
 
 export async function getAdminListings(req, res) {
-  const { status, search } = req.query;
+  const { search, status } = req.query;
 
-  const listings = await prisma.listing.findMany({
+  const properties = await prisma.property.findMany({
     where: {
-      ...(status ? { status } : {}),
+      ...(status && { status }),
       ...(search && {
         OR: [
-          { title: { contains: search, mode: "insensitive" } },
+          { name: { contains: search, mode: "insensitive" } },
           { address: { contains: search, mode: "insensitive" } },
+          { town: { contains: search, mode: "insensitive" } },
+          { estate: { contains: search, mode: "insensitive" } },
         ],
       }),
     },
@@ -92,10 +94,31 @@ export async function getAdminListings(req, res) {
           verification: true,
         },
       },
-      _count: { select: { savedBy: true, conversations: true } },
+      unitTypes: {
+        select: {
+          id: true,
+          label: true,
+          monthlyRent: true,
+          _count: { select: { units: true } },
+        },
+      },
+      _count: { select: { savedBy: true, conversations: true, unitTypes: true } },
     },
     orderBy: { createdAt: "desc" },
   });
+
+  // Compute vacantCount for each property in-memory
+  const listings = await Promise.all(
+    properties.map(async (p) => {
+      const vacantCount = await prisma.unit.count({
+        where: {
+          unitType: { propertyId: p.id },
+          status: "VACANT",
+        },
+      });
+      return { ...p, vacantCount };
+    })
+  );
 
   res.json({ listings });
 }
@@ -104,16 +127,16 @@ export async function updateListingStatus(req, res) {
   const { id } = req.params;
   const { status } = req.body;
 
-  const listing = await prisma.listing.update({
+  const property = await prisma.property.update({
     where: { id },
     data: { status },
   });
 
-  res.json({ listing });
+  res.json({ listing: property });
 }
 
 export async function deleteAdminListing(req, res) {
-  await prisma.listing.delete({ where: { id: req.params.id } });
+  await prisma.property.delete({ where: { id: req.params.id } });
   res.json({ ok: true });
 }
 
@@ -125,9 +148,6 @@ export async function getReports(req, res) {
       ...(resolved !== undefined && { resolved: resolved === "true" }),
     },
     include: {
-      listing: {
-        select: { id: true, title: true, slug: true, status: true },
-      },
       reportedBy: {
         select: { id: true, fullName: true, email: true },
       },
@@ -159,7 +179,7 @@ export async function getVerifications(req, res) {
       phone: true,
       createdAt: true,
       verificationDocs: true,
-      _count: { select: { listings: true } },
+      _count: { select: { properties: true } },
     },
     orderBy: { createdAt: "asc" },
   });
@@ -183,15 +203,15 @@ export async function updateVerification(req, res) {
   res.json({ user });
 }
 
-
-
 export async function approveListing(req, res) {
   const { id } = req.params;
   const { action } = req.body; // "approve" or "reject"
 
-  const listing = await prisma.listing.update({
+  const newStatus = action === "approve" ? "ACTIVE" : "REMOVED";
+
+  const property = await prisma.property.update({
     where: { id },
-    data: { status: action === "approve" ? "ACTIVE" : "REMOVED" },
+    data: { status: newStatus },
     include: {
       photos: true,
       landlord: { select: { id: true, fullName: true, email: true } },
@@ -199,13 +219,13 @@ export async function approveListing(req, res) {
     },
   });
 
-  res.json({ listing });
+  res.json({ listing: property });
 }
 
 export async function getListingDetail(req, res) {
   const { id } = req.params;
 
-  const listing = await prisma.listing.findUnique({
+  const property = await prisma.property.findUnique({
     where: { id },
     include: {
       photos: { orderBy: { order: "asc" } },
@@ -218,9 +238,17 @@ export async function getListingDetail(req, res) {
           verification: true,
           avatarUrl: true,
           createdAt: true,
-          _count: { select: { listings: true } },
+          _count: { select: { properties: true } },
         },
       },
+      unitTypes: {
+        include: {
+          photos: true,
+          amenities: true,
+          units: { select: { id: true, unitNumber: true, floor: true, status: true } },
+        },
+      },
+      amenities: true,
       _count: { select: { savedBy: true, conversations: true } },
       reports: {
         include: {
@@ -230,6 +258,116 @@ export async function getListingDetail(req, res) {
     },
   });
 
-  if (!listing) return res.status(404).json({ error: "Listing not found" });
-  res.json({ listing });
+  if (!property) return res.status(404).json({ error: "Property not found" });
+  res.json({ listing: property });
 }
+
+export async function updatePropertyInspection(req, res) {
+  const { id } = req.params;
+  const { amenities, conditionReport } = req.body;
+
+  const property = await prisma.property.findUnique({ where: { id } });
+  if (!property) return res.status(404).json({ error: "Property not found" });
+
+  // Update property amenities
+  if (Array.isArray(amenities)) {
+    await prisma.propertyAmenity.deleteMany({ where: { propertyId: id } });
+    await prisma.propertyAmenity.createMany({
+      data: amenities.map((a) => ({
+        propertyId: id,
+        name: a.name,
+        available: a.available ?? true,
+      })),
+    });
+  }
+
+  // Update condition report
+  if (conditionReport) {
+    const { floors, utilities, walls } = conditionReport;
+    const allPassed = [
+      ...(floors?.items || []),
+      ...(utilities?.items || []),
+      ...(walls?.items || []),
+    ].every((item) => item.status === "No issues");
+
+    await prisma.propertyConditionReport.upsert({
+      where: { propertyId: id },
+      update: { floors, utilities, walls, allPassed },
+      create: {
+        propertyId: id,
+        floors: floors || { items: [] },
+        utilities: utilities || { items: [] },
+        walls: walls || { items: [] },
+        allPassed,
+      },
+    });
+  }
+
+  const updatedProperty = await prisma.property.findUnique({
+    where: { id },
+    include: {
+      photos: { orderBy: { order: "asc" } },
+      amenities: true,
+      conditionReport: true,
+      unitTypes: {
+        include: { photos: true, amenities: true, conditionReport: true },
+      },
+    },
+  });
+
+  res.json({ property: updatedProperty });
+}
+
+export async function uploadInspectionPhoto(req, res) {
+  const { propertyId, unitTypeId, category } = req.body;
+
+  if (!req.files || req.files.length === 0) {
+    return res.status(400).json({ error: "No files uploaded" });
+  }
+
+  const roomCategory = category || "General";
+
+  if (unitTypeId) {
+    const existingCount = await prisma.unitTypePhoto.count({ where: { unitTypeId } });
+    await prisma.unitTypePhoto.createMany({
+      data: req.files.map((file, i) => ({
+        unitTypeId,
+        url: `/uploads/${file.filename}`,
+        category: roomCategory,
+        order: existingCount + i,
+      })),
+    });
+    const photos = await prisma.unitTypePhoto.findMany({ where: { unitTypeId }, orderBy: { order: "asc" } });
+    return res.status(201).json({ photos });
+  }
+
+  if (propertyId) {
+    const existingCount = await prisma.propertyPhoto.count({ where: { propertyId } });
+    await prisma.propertyPhoto.createMany({
+      data: req.files.map((file, i) => ({
+        propertyId,
+        url: `/uploads/${file.filename}`,
+        category: roomCategory,
+        order: existingCount + i,
+      })),
+    });
+    const photos = await prisma.propertyPhoto.findMany({ where: { propertyId }, orderBy: { order: "asc" } });
+    return res.status(201).json({ photos });
+  }
+
+  return res.status(400).json({ error: "propertyId or unitTypeId required" });
+}
+
+export async function deleteInspectionPhoto(req, res) {
+  const { photoId } = req.params;
+  const { type } = req.query; // "property" or "unitType"
+
+  if (type === "unitType") {
+    await prisma.unitTypePhoto.delete({ where: { id: photoId } });
+  } else {
+    await prisma.propertyPhoto.delete({ where: { id: photoId } });
+  }
+
+  res.json({ ok: true });
+}
+

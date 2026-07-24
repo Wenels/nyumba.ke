@@ -25,20 +25,23 @@ export const uploadIssuePhotos = multer({
 }).array("photos", 5);
 
 export async function createIssue(req, res) {
-  const { listingId, category, subject, description, priority, reportedTo } = req.body;
+  const { propertyId, listingId, unitId, category, subject, description, priority, reportedTo } = req.body;
 
-  if (!listingId || !category || !subject || !description) {
-    return res.status(400).json({ error: "listingId, category, subject, description are required" });
+  const targetPropertyId = propertyId || listingId;
+
+  if (!targetPropertyId || !category || !subject || !description) {
+    return res.status(400).json({ error: "propertyId, category, subject, description are required" });
   }
 
-  const listing = await prisma.listing.findUnique({ where: { id: listingId } });
-  if (!listing) return res.status(404).json({ error: "Listing not found" });
+  const property = await prisma.property.findUnique({ where: { id: targetPropertyId } });
+  if (!property) return res.status(404).json({ error: "Property not found" });
 
   const issue = await prisma.issue.create({
     data: {
-      listingId,
+      propertyId: targetPropertyId,
+      unitId: unitId || null,
       tenantId: req.session.userId,
-      landlordId: listing.landlordId,
+      landlordId: property.landlordId,
       category,
       subject,
       description,
@@ -76,10 +79,20 @@ export async function getTenantIssues(req, res) {
     },
     include: {
       photos: true,
-      listing: { select: { id: true, title: true, address: true } },
+      property: { select: { id: true, name: true, address: true } },
+      unit: { select: { id: true, unitNumber: true } },
     },
     orderBy: { createdAt: "desc" },
   });
+
+  const formatted = issues.map((i) => ({
+    ...i,
+    listing: {
+      id: i.property.id,
+      title: i.property.name,
+      address: i.property.address,
+    },
+  }));
 
   const stats = {
     total: issues.length,
@@ -88,7 +101,7 @@ export async function getTenantIssues(req, res) {
     resolved: issues.filter((i) => i.status === "RESOLVED").length,
   };
 
-  res.json({ issues, stats });
+  res.json({ issues: formatted, stats });
 }
 
 export async function getLandlordIssues(req, res) {
@@ -102,11 +115,21 @@ export async function getLandlordIssues(req, res) {
     },
     include: {
       photos: true,
-      listing: { select: { id: true, title: true, address: true } },
+      property: { select: { id: true, name: true, address: true } },
+      unit: { select: { id: true, unitNumber: true } },
       tenant: { select: { id: true, fullName: true, email: true, phone: true } },
     },
     orderBy: { createdAt: "desc" },
   });
+
+  const formatted = issues.map((i) => ({
+    ...i,
+    listing: {
+      id: i.property.id,
+      title: i.property.name,
+      address: i.property.address,
+    },
+  }));
 
   const stats = {
     total: issues.length,
@@ -115,7 +138,7 @@ export async function getLandlordIssues(req, res) {
     resolved: issues.filter((i) => i.status === "RESOLVED").length,
   };
 
-  res.json({ issues, stats });
+  res.json({ issues: formatted, stats });
 }
 
 export async function updateIssueStatus(req, res) {

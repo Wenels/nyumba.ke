@@ -131,7 +131,8 @@ export default function TenantPaymentsPage() {
             <div className="flex gap-3">
               <Button variant="outline" className="flex-1" onClick={() => setPayingId(null)}>Cancel</Button>
               <Button className="flex-1 bg-primary text-primary-foreground hover:bg-primary/90"
-                disabled={payMutation.isPending || !phoneNumber}
+                loading={payMutation.isPending}
+                disabled={!phoneNumber}
                 onClick={() => payMutation.mutate({ id: payingId, phone: phoneNumber })}>
                 {payMutation.isPending ? "Processing..." : "Send STK Push"}
               </Button>
