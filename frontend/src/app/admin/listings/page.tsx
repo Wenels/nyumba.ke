@@ -622,23 +622,27 @@ function InspectionModal({ property, onClose, onSaved }: { property: any; onClos
                 🏢 Property / Building Level (Exterior, Gate, Shared)
               </button>
 
-              {property.unitTypes?.map((ut: any) => (
-                <button
-                  key={ut.id}
-                  type="button"
-                  onClick={() => {
-                    setTargetType("UNIT_TYPE");
-                    setSelectedUnitTypeId(ut.id);
-                  }}
-                  className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all border ${
-                    targetType === "UNIT_TYPE" && selectedUnitTypeId === ut.id
-                      ? "bg-primary text-primary-foreground border-primary shadow-sm"
-                      : "bg-background text-foreground border-border hover:bg-muted"
-                  }`}
-                >
-                  🚪 {ut.name} ({ut.count} units)
-                </button>
-              ))}
+              {property.unitTypes?.map((ut: any) => {
+                const uName = ut.label || ut.name || "Unit Type";
+                const uCount = ut.units?.length ?? ut._count?.units ?? ut.count ?? 1;
+                return (
+                  <button
+                    key={ut.id}
+                    type="button"
+                    onClick={() => {
+                      setTargetType("UNIT_TYPE");
+                      setSelectedUnitTypeId(ut.id);
+                    }}
+                    className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all border ${
+                      targetType === "UNIT_TYPE" && selectedUnitTypeId === ut.id
+                        ? "bg-emerald-600 text-white border-emerald-600 shadow-sm"
+                        : "bg-background text-foreground border-border hover:bg-muted"
+                    }`}
+                  >
+                    🚪 {uName} ({uCount} {uCount === 1 ? "unit" : "units"})
+                  </button>
+                );
+              })}
             </div>
           </div>
 
@@ -686,7 +690,10 @@ function InspectionModal({ property, onClose, onSaved }: { property: any; onClos
                   <span className="text-emerald-700 font-extrabold">
                     {targetType === "PROPERTY"
                       ? "Building / Property Level"
-                      : property.unitTypes?.find((u: any) => u.id === selectedUnitTypeId)?.name}
+                      : (() => {
+                          const ut = property.unitTypes?.find((u: any) => u.id === selectedUnitTypeId);
+                          return ut?.label || ut?.name || "Unit Type";
+                        })()}
                   </span>{" "}
                   → Category: <span className="text-emerald-700 font-extrabold">{photoCategory}</span>
                 </p>
@@ -756,7 +763,10 @@ function InspectionModal({ property, onClose, onSaved }: { property: any; onClos
                       <button
                         type="button"
                         onClick={() =>
-                          handleDeletePhoto(photo.id, targetType === "PROPERTY" ? "property" : "unitType")
+                          handleDeletePhoto(
+                            photo.id,
+                            photo.unitTypeId ? "unitType" : targetType === "PROPERTY" ? "property" : "unitType"
+                          )
                         }
                         disabled={deletingPhotoId === photo.id}
                         className="absolute top-1.5 right-1.5 h-6 w-6 rounded-full bg-red-600 text-white flex items-center justify-center text-xs font-bold hover:bg-red-700 shadow-md transition-transform transform hover:scale-110"
