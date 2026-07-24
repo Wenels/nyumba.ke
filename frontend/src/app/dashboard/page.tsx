@@ -270,21 +270,21 @@ export default function DashboardPage() {
         {/* Right — Occupancy + Property Status + Quick Actions */}
         <div className="space-y-4">
           {/* Occupancy Rate */}
-          <div className="rounded-xl bg-gradient-to-br from-purple-600 to-blue-500 p-5 text-white">
+          <div className="rounded-xl bg-gradient-to-br from-primary to-primary/80 p-5 text-primary-foreground">
             <div className="flex items-center gap-3 mb-4">
-              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-white/20">
-                <Users className="h-4 w-4 text-white" />
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary-foreground/20">
+                <Users className="h-4 w-4 text-primary-foreground" />
               </div>
               <div>
                 <p className="font-semibold text-sm">Occupancy Rate</p>
-                <p className="text-xs text-white/70">Overall performance</p>
+                <p className="text-xs text-primary-foreground/70">Overall performance</p>
               </div>
             </div>
             <p className="text-5xl font-bold">0%</p>
-            <div className="mt-3 h-1.5 rounded-full bg-white/20">
-              <div className="h-full rounded-full bg-white" style={{ width: "0%" }} />
+            <div className="mt-3 h-1.5 rounded-full bg-primary-foreground/20">
+              <div className="h-full rounded-full bg-primary-foreground" style={{ width: "0%" }} />
             </div>
-            <div className="mt-3 flex justify-between text-xs text-white/70">
+            <div className="mt-3 flex justify-between text-xs text-primary-foreground/70">
               <span>Occupied: 0</span>
               <span>Total Units: {listings.length}</span>
             </div>

@@ -13,8 +13,12 @@ import {
   resolveReport,
   getVerifications,
   updateVerification,
+  updatePropertyInspection,
+  uploadInspectionPhoto,
+  deleteInspectionPhoto,
 } from "../controllers/adminController.js";
 import { requireAdmin } from "../middleware/auth.js";
+import { upload } from "../controllers/photosController.js";
 
 const router = Router();
 
@@ -31,6 +35,9 @@ router.patch("/listings/:id/status", updateListingStatus);
 router.delete("/listings/:id", deleteAdminListing);
 router.get("/listings/:id/detail", getListingDetail);
 router.patch("/listings/:id/approve", approveListing);
+router.patch("/listings/:id/inspection", updatePropertyInspection);
+router.post("/photos", upload.array("photos", 10), uploadInspectionPhoto);
+router.delete("/photos/:photoId", deleteInspectionPhoto);
 
 router.get("/reports", getReports);
 router.patch("/reports/:id/resolve", resolveReport);

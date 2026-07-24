@@ -106,7 +106,7 @@ export function LoginForm() {
 
       <Button
         type="submit"
-        disabled={isLoggingIn}
+        loading={isLoggingIn}
         className="mt-6 w-full bg-secondary text-secondary-foreground hover:bg-secondary/90"
         size="lg"
       >

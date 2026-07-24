@@ -25,6 +25,7 @@ export default function AdminListingsPage() {
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState("PENDING");
   const [selectedListing, setSelectedListing] = useState<any>(null);
+  const [showInspectionModal, setShowInspectionModal] = useState(false);
   const queryClient = useQueryClient();
 
   const { data, isLoading } = useQuery({
@@ -129,7 +130,7 @@ export default function AdminListingsPage() {
               No listings found
             </div>
           ) : (
-            listings.map((listing) => {
+            listings.map((listing: any) => {
               const photo = listing.photos?.[0];
               const isSelected = selectedListing?.id === listing.id;
               return (
@@ -159,10 +160,12 @@ export default function AdminListingsPage() {
                   </div>
 
                   <div className="flex-1 min-w-0">
-                    <p className="font-semibold text-background truncate">{listing.title}</p>
+                    <p className="font-semibold text-background truncate">{listing.name}</p>
                     <p className="text-xs text-background/50 truncate">
-                      {listing.landlord?.fullName} · Ksh{" "}
-                      {listing.price?.toLocaleString()}/mo
+                      {listing.landlord?.fullName} ·{" "}
+                      {listing.unitTypes?.length
+                        ? `From Ksh ${Math.min(...listing.unitTypes.map((u: any) => u.monthlyRent)).toLocaleString()}/mo`
+                        : listing.address}
                     </p>
                   </div>
 
@@ -194,19 +197,19 @@ export default function AdminListingsPage() {
             {detail ? (
               <>
                 <div>
-                  <h3 className="font-bold text-background">{detail.title}</h3>
+                  <h3 className="font-bold text-background">{detail.name}</h3>
                   <p className="text-xs text-background/50 mt-1">{detail.address}</p>
                 </div>
 
                 {detail.photos?.length > 0 && (
                   <div className="relative aspect-video rounded-lg overflow-hidden">
                     <Image
-                      src={`${API_URL}${detail.photos[0].url}`}
-                      alt={detail.title}
-                      fill
-                      sizes="320px"
-                      className="object-cover"
-                    />
+                        src={`${API_URL}${detail.photos[0].url}`}
+                        alt={detail.name}
+                        fill
+                        sizes="320px"
+                        className="object-cover"
+                      />
                     {detail.photos.length > 1 && (
                       <span className="absolute bottom-2 right-2 rounded bg-foreground/70 px-1.5 py-0.5 text-xs text-background">
                         +{detail.photos.length - 1} photos
@@ -217,22 +220,28 @@ export default function AdminListingsPage() {
 
                 <div className="space-y-2 text-sm">
                   <div className="flex justify-between">
-                    <span className="text-background/50">Price</span>
-                    <span className="text-background font-medium">
-                      Ksh {detail.price?.toLocaleString()}/mo
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
                     <span className="text-background/50">Type</span>
                     <span className="text-background">{detail.propertyType}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-background/50">Bedrooms</span>
-                    <span className="text-background">{detail.bedrooms}</span>
+                    <span className="text-background/50">Unit Types</span>
+                    <span className="text-background">{detail.unitTypes?.length ?? 0}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-background/50">Bathrooms</span>
-                    <span className="text-background">{detail.bathrooms}</span>
+                    <span className="text-background/50">Starting Rent</span>
+                    <span className="text-background font-medium">
+                      {detail.unitTypes?.length
+                        ? `Ksh ${Math.min(...detail.unitTypes.map((u: any) => u.monthlyRent)).toLocaleString()}/mo`
+                        : "—"}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-background/50">Total Floors</span>
+                    <span className="text-background">{detail.totalFloors}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-background/50">Total Units</span>
+                    <span className="text-background">{detail.totalUnits}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-background/50">Saves</span>
@@ -320,6 +329,14 @@ export default function AdminListingsPage() {
                   </Link>
 
                   <Button
+                    onClick={() => setShowInspectionModal(true)}
+                    className="w-full gap-2 bg-emerald-600 text-white hover:bg-emerald-700 font-semibold"
+                  >
+                    <CheckCircle2 className="h-4 w-4" />
+                    Inspection & Verification
+                  </Button>
+
+                  <Button
                     variant="outline"
                     onClick={() => {
                       if (confirm("Permanently delete this listing from the database?")) {
@@ -341,6 +358,480 @@ export default function AdminListingsPage() {
             )}
           </div>
         )}
+      </div>
+
+      {/* Admin Inspection & Verification Modal */}
+      {showInspectionModal && detail && (
+        <InspectionModal
+          property={detail}
+          onClose={() => setShowInspectionModal(false)}
+          onSaved={() => {
+            queryClient.invalidateQueries({ queryKey: ["admin-listing-detail", selectedListing?.id] });
+            queryClient.invalidateQueries({ queryKey: ["admin-listings"] });
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+const DEFAULT_AMENITIES_LIST = [
+  "Water Supply",
+  "Electricity",
+  "Parking",
+  "Security",
+  "WiFi/Internet",
+  "Lift / Elevator",
+  "Garbage Collection",
+  "CCTV",
+];
+
+const ROOM_CATEGORIES = [
+  "Exterior / Compound",
+  "Living Area",
+  "Kitchen",
+  "Bedroom",
+  "Bathroom",
+  "Shared Areas",
+];
+
+function InspectionModal({ property, onClose, onSaved }: { property: any; onClose: () => void; onSaved: () => void }) {
+  const [amenities, setAmenities] = useState<Array<{ name: string; available: boolean }>>(() => {
+    if (property.amenities && property.amenities.length > 0) {
+      return property.amenities.map((a: any) => ({ name: a.name, available: a.available }));
+    }
+    return DEFAULT_AMENITIES_LIST.map((name) => ({ name, available: true }));
+  });
+
+  const [conditionReport, setConditionReport] = useState<any>(() => {
+    if (property.conditionReport) return property.conditionReport;
+    return {
+      floors: { items: [{ name: "Tiling Grout", status: "No issues" }, { name: "Floor Condition", status: "No issues" }] },
+      utilities: { items: [{ name: "Plumbing", status: "No issues" }, { name: "Water Pressure", status: "No issues" }, { name: "Sockets/Switches", status: "No issues" }] },
+      walls: { items: [{ name: "Paint Finish", status: "No issues" }, { name: "Cracks/Damage", status: "No issues" }] },
+    };
+  });
+
+  // Photo upload state with 2-tier hierarchy
+  const [targetType, setTargetType] = useState<"PROPERTY" | "UNIT_TYPE">("PROPERTY");
+  const [selectedUnitTypeId, setSelectedUnitTypeId] = useState<string>(
+    property.unitTypes?.[0]?.id || ""
+  );
+  const [photoCategory, setPhotoCategory] = useState("Living Area");
+  const [uploadFiles, setUploadFiles] = useState<FileList | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [deletingPhotoId, setDeletingPhotoId] = useState<string | null>(null);
+
+  const handleUploadCategorizedPhotos = async () => {
+    if (!uploadFiles || uploadFiles.length === 0) {
+      toast.error("Please select photo files to upload");
+      return;
+    }
+
+    if (targetType === "UNIT_TYPE" && !selectedUnitTypeId) {
+      toast.error("Please select a Unit Type target");
+      return;
+    }
+
+    setIsUploading(true);
+    try {
+      const formData = new FormData();
+      if (targetType === "PROPERTY") {
+        formData.append("propertyId", property.id);
+      } else {
+        formData.append("unitTypeId", selectedUnitTypeId);
+      }
+      formData.append("category", photoCategory);
+      Array.from(uploadFiles).forEach((file) => formData.append("photos", file));
+
+      const res = await fetch(`${API_URL}/api/admin/photos`, {
+        method: "POST",
+        credentials: "include",
+        body: formData,
+      });
+
+      if (!res.ok) throw new Error("Upload failed");
+      toast.success(`Uploaded ${uploadFiles.length} photo(s) successfully!`);
+      setUploadFiles(null);
+      onSaved();
+    } catch (e: any) {
+      toast.error("Failed to upload photos");
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  const handleDeletePhoto = async (photoId: string, type: "property" | "unitType") => {
+    setDeletingPhotoId(photoId);
+    try {
+      const res: any = await api.delete(`/api/admin/photos/${photoId}?type=${type}`);
+      if (res?.status === 200 || res?.data?.ok) {
+        toast.success("Photo removed successfully");
+        onSaved();
+      }
+    } catch (err: any) {
+      toast.error("Failed to delete photo");
+    } finally {
+      setDeletingPhotoId(null);
+    }
+  };
+
+  const confirmedCount = amenities.filter((a) => a.available).length;
+  const notFoundCount = amenities.filter((a) => !a.available).length;
+
+  const toggleAmenity = (name: string) => {
+    setAmenities((prev) =>
+      prev.map((a) => (a.name === name ? { ...a, available: !a.available } : a))
+    );
+  };
+
+  const toggleConditionItem = (section: string, itemName: string) => {
+    setConditionReport((prev: any) => {
+      const sectionData = prev[section] || { items: [] };
+      const updatedItems = sectionData.items.map((i: any) =>
+        i.name === itemName
+          ? { ...i, status: i.status === "No issues" ? "Issue Found" : "No issues" }
+          : i
+      );
+      return {
+        ...prev,
+        [section]: { ...sectionData, items: updatedItems },
+      };
+    });
+  };
+
+  const handleSaveInspection = async () => {
+    setIsSaving(true);
+    try {
+      await api.patch(`/api/admin/listings/${property.id}/inspection`, {
+        amenities,
+        conditionReport,
+      });
+      toast.success("Inspection amenities & condition report saved!");
+      onSaved();
+      onClose();
+    } catch (err: any) {
+      toast.error("Failed to save inspection data");
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4 backdrop-blur-xs overflow-y-auto py-8">
+      <div className="w-full max-w-3xl rounded-2xl bg-background border border-border p-6 shadow-2xl space-y-6 max-h-[90vh] overflow-y-auto">
+        <div className="flex items-center justify-between border-b border-border pb-4">
+          <div>
+            <h2 className="text-xl font-bold text-foreground">Nyumba.ke Official Inspection Dashboard</h2>
+            <p className="text-xs text-muted-foreground mt-0.5">Verify property amenities, upload room-categorized inspection photos, and record findings.</p>
+          </div>
+          <button onClick={onClose} className="rounded-full p-2 text-muted-foreground hover:bg-muted">
+            <XCircle className="h-5 w-5" />
+          </button>
+        </div>
+
+        {/* Amenity Verification Check (Matching UI design) */}
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <h3 className="font-bold text-sm text-foreground uppercase tracking-wide">Amenity Verification Check</h3>
+            <span className="text-xs font-semibold text-primary">Team Field Verification</span>
+          </div>
+
+          {/* Top Summary Stat Cards */}
+          <div className="grid grid-cols-3 gap-3">
+            <div className="rounded-xl border border-emerald-200 bg-emerald-50/80 p-4 text-center">
+              <p className="text-2xl font-extrabold text-emerald-600">{confirmedCount}</p>
+              <p className="text-xs font-semibold text-emerald-700/80 mt-0.5">Confirmed</p>
+            </div>
+            <div className="rounded-xl border border-red-200 bg-red-50/80 p-4 text-center">
+              <p className="text-2xl font-extrabold text-red-500">{notFoundCount}</p>
+              <p className="text-xs font-semibold text-red-500/80 mt-0.5">Not Found</p>
+            </div>
+            <div className="rounded-xl border border-slate-200 bg-slate-50/80 p-4 text-center">
+              <p className="text-2xl font-extrabold text-slate-700">{amenities.length}</p>
+              <p className="text-xs font-semibold text-slate-500 mt-0.5">Total Checked</p>
+            </div>
+          </div>
+
+          {/* Amenity Rows */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+            {amenities.map((item: any) => (
+              <div
+                key={item.name}
+                onClick={() => toggleAmenity(item.name)}
+                className={`flex items-center justify-between rounded-xl border p-3.5 cursor-pointer transition-all ${
+                  item.available
+                    ? "border-emerald-200 bg-emerald-50/40 hover:bg-emerald-50"
+                    : "border-red-200 bg-red-50/40 hover:bg-red-50"
+                }`}
+              >
+                <div className="flex items-center gap-3">
+                  <span
+                    className={`flex h-5 w-5 items-center justify-center rounded-full text-white text-xs font-bold ${
+                      item.available ? "bg-emerald-500" : "bg-red-500"
+                    }`}
+                  >
+                    {item.available ? "✓" : "✕"}
+                  </span>
+                  <span className="text-sm font-semibold text-foreground">{item.name}</span>
+                </div>
+                <span
+                  className={`rounded-full px-2.5 py-0.5 text-xs font-bold ${
+                    item.available
+                      ? "bg-emerald-100 text-emerald-800 border border-emerald-200"
+                      : "bg-red-100 text-red-800 border border-red-200"
+                  }`}
+                >
+                  {item.available ? "Available" : "Not Found"}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Hierarchical Inspection Photo Manager & Uploader */}
+        <div className="border-t border-border pt-5 space-y-4">
+          <div className="flex items-center justify-between">
+            <h3 className="font-bold text-sm text-foreground uppercase tracking-wide">
+              Hierarchical Inspection Photo Upload
+            </h3>
+            <span className="text-xs font-semibold text-emerald-600 bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-200">
+              Admin Asset Manager
+            </span>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Upload and organize field inspection photos into the precise property hierarchy (Building vs. Unit Type) and room categories.
+          </p>
+
+          {/* STEP 1: HIERARCHY TARGET SELECTOR */}
+          <div className="rounded-xl border border-border p-4 bg-muted/20 space-y-3">
+            <label className="text-xs font-bold text-foreground uppercase tracking-wider block">
+              Step 1: Select Hierarchy Target Level
+            </label>
+            <div className="flex flex-wrap gap-2.5">
+              <button
+                type="button"
+                onClick={() => setTargetType("PROPERTY")}
+                className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all border ${
+                  targetType === "PROPERTY"
+                    ? "bg-primary text-primary-foreground border-primary shadow-sm"
+                    : "bg-background text-foreground border-border hover:bg-muted"
+                }`}
+              >
+                🏢 Property / Building Level (Exterior, Gate, Shared)
+              </button>
+
+              {property.unitTypes?.map((ut: any) => (
+                <button
+                  key={ut.id}
+                  type="button"
+                  onClick={() => {
+                    setTargetType("UNIT_TYPE");
+                    setSelectedUnitTypeId(ut.id);
+                  }}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all border ${
+                    targetType === "UNIT_TYPE" && selectedUnitTypeId === ut.id
+                      ? "bg-primary text-primary-foreground border-primary shadow-sm"
+                      : "bg-background text-foreground border-border hover:bg-muted"
+                  }`}
+                >
+                  🚪 {ut.name} ({ut.count} units)
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* STEP 2: HOUSE AREA / ROOM CATEGORY SELECTOR */}
+          <div className="rounded-xl border border-border p-4 bg-muted/20 space-y-3">
+            <label className="text-xs font-bold text-foreground uppercase tracking-wider block">
+              Step 2: Select Room Area / House Category
+            </label>
+            <div className="flex flex-wrap gap-2">
+              {ROOM_CATEGORIES.map((cat) => {
+                let icon = "📷";
+                if (cat.includes("Living")) icon = "🛋️";
+                if (cat.includes("Kitchen")) icon = "🍳";
+                if (cat.includes("Master")) icon = "🛏️";
+                if (cat.includes("Bedroom") && !cat.includes("Master")) icon = "🛏️";
+                if (cat.includes("Bathroom")) icon = "🚿";
+                if (cat.includes("Exterior")) icon = "🌳";
+                if (cat.includes("Shared")) icon = "🏢";
+
+                return (
+                  <button
+                    key={cat}
+                    type="button"
+                    onClick={() => setPhotoCategory(cat)}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all border ${
+                      photoCategory === cat
+                        ? "bg-emerald-600 text-white border-emerald-600 shadow-xs"
+                        : "bg-background text-muted-foreground border-border hover:text-foreground hover:bg-muted"
+                    }`}
+                  >
+                    <span>{icon}</span>
+                    <span>{cat}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* STEP 3: UPLOAD FILE INPUT & BUTTON */}
+          <div className="rounded-xl border border-dashed border-emerald-300 bg-emerald-50/40 p-4 space-y-3">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-xs font-bold text-foreground">
+                  Target:{" "}
+                  <span className="text-emerald-700 font-extrabold">
+                    {targetType === "PROPERTY"
+                      ? "Building / Property Level"
+                      : property.unitTypes?.find((u: any) => u.id === selectedUnitTypeId)?.name}
+                  </span>{" "}
+                  → Category: <span className="text-emerald-700 font-extrabold">{photoCategory}</span>
+                </p>
+                <p className="text-[11px] text-muted-foreground mt-0.5">
+                  Select one or multiple high-resolution photos for this section
+                </p>
+              </div>
+              <span className="text-xs font-semibold text-emerald-800 bg-emerald-100 px-2.5 py-0.5 rounded-full">
+                {uploadFiles ? `${uploadFiles.length} file(s) selected` : "No files selected"}
+              </span>
+            </div>
+
+            <div className="flex flex-col sm:flex-row gap-3 items-center">
+              <input
+                type="file"
+                multiple
+                accept="image/*"
+                onChange={(e) => setUploadFiles(e.target.files)}
+                className="w-full text-xs text-foreground file:mr-3 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-emerald-600 file:text-white hover:file:bg-emerald-700 cursor-pointer"
+              />
+              <Button
+                onClick={handleUploadCategorizedPhotos}
+                disabled={isUploading || !uploadFiles}
+                className="w-full sm:w-auto bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs px-6 py-2 rounded-xl"
+              >
+                {isUploading ? "Uploading..." : "Upload Photos"}
+              </Button>
+            </div>
+          </div>
+
+          {/* STEP 4: MANAGED EXISTING PHOTOS PREVIEW & DELETE */}
+          <div className="space-y-3 pt-2">
+            <h4 className="text-xs font-bold text-foreground uppercase tracking-wider">
+              Currently Uploaded Photos for Selected Target
+            </h4>
+
+            {(() => {
+              const currentPhotos =
+                targetType === "PROPERTY"
+                  ? property.photos || []
+                  : property.unitTypes?.find((u: any) => u.id === selectedUnitTypeId)?.photos || [];
+
+              if (currentPhotos.length === 0) {
+                return (
+                  <p className="text-xs text-muted-foreground italic bg-muted/20 p-3 rounded-xl">
+                    No photos uploaded for this target level yet.
+                  </p>
+                );
+              }
+
+              return (
+                <div className="grid grid-cols-3 sm:grid-cols-4 gap-3 max-h-56 overflow-y-auto p-1">
+                  {currentPhotos.map((photo: any) => (
+                    <div
+                      key={photo.id}
+                      className="group relative aspect-4/3 rounded-xl overflow-hidden border border-border bg-slate-100"
+                    >
+                      <img
+                        src={photo.url?.startsWith("http") ? photo.url : `${API_URL}${photo.url}`}
+                        alt={photo.category}
+                        className="h-full w-full object-cover"
+                      />
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent opacity-90 transition-opacity" />
+                      <span className="absolute bottom-1.5 left-1.5 text-[10px] font-bold text-white bg-black/50 px-1.5 py-0.5 rounded-md">
+                        {photo.category || "General"}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          handleDeletePhoto(photo.id, targetType === "PROPERTY" ? "property" : "unitType")
+                        }
+                        disabled={deletingPhotoId === photo.id}
+                        className="absolute top-1.5 right-1.5 h-6 w-6 rounded-full bg-red-600 text-white flex items-center justify-center text-xs font-bold hover:bg-red-700 shadow-md transition-transform transform hover:scale-110"
+                        title="Delete photo"
+                      >
+                        {deletingPhotoId === photo.id ? "..." : "✕"}
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              );
+            })()}
+          </div>
+        </div>
+
+        {/* Condition Report Checklist Editor */}
+        <div className="border-t border-border pt-5 space-y-4">
+          <div className="flex items-center justify-between">
+            <h3 className="font-bold text-sm text-foreground uppercase tracking-wide">Official Condition Report Checklist</h3>
+            <span className="text-xs font-semibold text-primary">Field Agents Log</span>
+          </div>
+
+          {["floors", "utilities", "walls"].map((section) => {
+            const sectionData = conditionReport[section];
+            if (!sectionData?.items) return null;
+            return (
+              <div key={section} className="rounded-xl border border-border overflow-hidden bg-card">
+                <div className="bg-muted/40 px-4 py-2.5 border-b border-border">
+                  <h4 className="font-bold text-xs capitalize text-foreground">{section} Inspection</h4>
+                </div>
+                <div className="divide-y divide-border/60">
+                  {sectionData.items.map((item: any) => (
+                    <div
+                      key={item.name}
+                      onClick={() => toggleConditionItem(section, item.name)}
+                      className="flex items-center justify-between px-4 py-3 cursor-pointer hover:bg-muted/20 transition-colors"
+                    >
+                      <div className="flex items-center gap-3">
+                        <span
+                          className={`flex h-5 w-5 items-center justify-center rounded-full text-white text-xs font-bold ${
+                            item.status === "No issues" ? "bg-emerald-500" : "bg-amber-500"
+                          }`}
+                        >
+                          ✓
+                        </span>
+                        <span className="text-sm font-semibold text-foreground">{item.name}</span>
+                      </div>
+                      <span
+                        className={`rounded-full px-3 py-0.5 text-xs font-bold ${
+                          item.status === "No issues"
+                            ? "bg-emerald-100 text-emerald-800 border border-emerald-200"
+                            : "bg-amber-100 text-amber-800 border border-amber-200"
+                        }`}
+                      >
+                        {item.status}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Action CTAs */}
+        <div className="border-t border-border pt-4 flex gap-3 justify-end">
+          <Button variant="outline" onClick={onClose}>Cancel</Button>
+          <Button
+            onClick={handleSaveInspection}
+            disabled={isSaving}
+            className="bg-emerald-600 text-white hover:bg-emerald-700 font-semibold px-6"
+          >
+            {isSaving ? "Saving..." : "Save Inspection Data"}
+          </Button>
+        </div>
       </div>
     </div>
   );

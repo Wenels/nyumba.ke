@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { format } from "date-fns";
-import { Calendar, CheckCircle2, XCircle, Clock, Eye, Search, Filter, List, Grid } from "lucide-react";
+import { Calendar, CheckCircle2, XCircle, Clock, Eye, Search, Filter, Key, Building2, X } from "lucide-react";
 import { api, ApiError } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 
@@ -14,6 +14,8 @@ export default function BookingsPage() {
   const [activeTab, setActiveTab] = useState("ALL");
   const [searchQuery, setSearchQuery] = useState("");
   const [viewMode, setViewMode] = useState<"list" | "grid">("list");
+  const [approvingBooking, setApprovingBooking] = useState<any>(null);
+  const [selectedUnitId, setSelectedUnitId] = useState<string>("");
   const queryClient = useQueryClient();
 
   const { data, isLoading } = useQuery({
@@ -22,14 +24,16 @@ export default function BookingsPage() {
   });
 
   const statusMutation = useMutation({
-    mutationFn: ({ id, status }: { id: string; status: string }) =>
-      api.patch(`/api/bookings/${id}/status`, { status }),
+    mutationFn: ({ id, status, unitId }: { id: string; status: string; unitId?: string }) =>
+      api.patch(`/api/bookings/${id}/status`, { status, unitId }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["landlord-bookings"] });
       toast.success("Booking updated");
+      setApprovingBooking(null);
+      setSelectedUnitId("");
     },
     onError: (err) => {
-      toast.error("Failed", { description: err instanceof ApiError ? (err.body as any)?.error : "Error" });
+      toast.error("Failed to update booking", { description: err instanceof ApiError ? (err.body as any)?.error : "Error" });
     },
   });
 
@@ -45,12 +49,106 @@ export default function BookingsPage() {
              b.unitType?.toLowerCase().includes(q);
     });
 
+  function openApprovalModal(booking: any) {
+    setApprovingBooking(booking);
+    const vacantUnits = booking.unitTypeDetails?.units?.filter((u: any) => u.status === "VACANT") || [];
+    if (vacantUnits.length > 0) {
+      setSelectedUnitId(vacantUnits[0].id);
+    }
+  }
+
+  function handleConfirmApproval() {
+    if (!approvingBooking) return;
+    statusMutation.mutate({
+      id: approvingBooking.id,
+      status: "APPROVED",
+      unitId: selectedUnitId || undefined,
+    });
+  }
+
   return (
     <div className="space-y-6">
+      {/* Unit Assignment Approval Modal */}
+      {approvingBooking && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-foreground/60 px-4">
+          <div className="w-full max-w-md rounded-2xl bg-background p-6 shadow-2xl space-y-4">
+            <div className="flex items-center justify-between border-b border-border pb-3">
+              <div className="flex items-center gap-2">
+                <Building2 className="h-5 w-5 text-primary" />
+                <h3 className="font-bold text-lg">Approve & Assign Unit</h3>
+              </div>
+              <button onClick={() => setApprovingBooking(null)} className="text-muted-foreground hover:text-foreground">
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="rounded-xl bg-muted/40 p-4 space-y-2 text-sm">
+              <p className="font-semibold text-foreground">{approvingBooking.tenant?.fullName}</p>
+              <p className="text-xs text-muted-foreground">Property: <span className="font-medium text-foreground">{approvingBooking.listing?.title}</span></p>
+              <p className="text-xs text-muted-foreground">Category: <span className="font-semibold text-primary">{approvingBooking.unitType}</span></p>
+            </div>
+
+            <div>
+              <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2 flex items-center gap-1.5">
+                <Key className="h-3.5 w-3.5 text-primary" /> Assign Specific Vacant Room:
+              </label>
+
+              {(() => {
+                const vacantUnits = approvingBooking.unitTypeDetails?.units?.filter((u: any) => u.status === "VACANT") || [];
+                if (vacantUnits.length === 0) {
+                  return (
+                    <div className="rounded-lg border border-yellow-200 bg-yellow-50 p-3 text-xs text-yellow-800">
+                      No specific vacant room registered for this unit type. Approving will create a contract for the category.
+                    </div>
+                  );
+                }
+                return (
+                  <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
+                    {vacantUnits.map((u: any) => (
+                      <button
+                        key={u.id}
+                        type="button"
+                        onClick={() => setSelectedUnitId(u.id)}
+                        className={`w-full flex items-center justify-between rounded-lg border-2 p-3 text-xs font-medium transition-colors text-left ${
+                          selectedUnitId === u.id
+                            ? "border-primary bg-primary/5 text-primary font-bold shadow-sm"
+                            : "border-border hover:border-primary/50 text-foreground"
+                        }`}
+                      >
+                        <div>
+                          <p className="font-bold">Unit {u.unitNumber}</p>
+                          <p className="text-[11px] text-muted-foreground">Floor {u.floor} {u.doorNumber ? `(Door ${u.doorNumber})` : ""}</p>
+                        </div>
+                        <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[11px] font-semibold text-primary">
+                          VACANT
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                );
+              })()}
+            </div>
+
+            <div className="pt-3 flex gap-3 border-t border-border">
+              <Button variant="outline" className="flex-1" onClick={() => setApprovingBooking(null)}>
+                Cancel
+              </Button>
+              <Button
+                className="flex-1 bg-primary text-primary-foreground hover:bg-primary/90 font-semibold"
+                loading={statusMutation.isPending}
+                onClick={handleConfirmApproval}
+              >
+                Confirm & Assign
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Bookings Management</h1>
-          <p className="mt-1 text-muted-foreground">Review and manage property booking requests</p>
+          <p className="mt-1 text-muted-foreground">Review tenant bookings and assign vacant units</p>
         </div>
       </div>
 
@@ -77,7 +175,7 @@ export default function BookingsPage() {
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <input
             type="text"
-            placeholder="Search by property, tenant name, unit number..."
+            placeholder="Search by property, tenant name, unit category..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="w-full h-9 pl-9 pr-4 rounded-lg bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all"
@@ -159,7 +257,8 @@ export default function BookingsPage() {
                   </div>
                   <p className="mt-1 text-sm text-muted-foreground truncate">{booking.listing?.title}</p>
                   <div className="mt-2 flex flex-wrap gap-4 text-xs text-muted-foreground">
-                    <span>Unit: {booking.unitType}</span>
+                    <span className="font-medium text-foreground">Category: {booking.unitType}</span>
+                    {booking.unit && <span className="font-bold text-primary">Assigned: Unit {booking.unit.unitNumber}</span>}
                     <span>Move-in: {format(new Date(booking.moveInDate), "dd MMM yyyy")}</span>
                     <span>Lease: {booking.leaseDuration} months</span>
                     {booking.viewingDate && <span>Viewing: {format(new Date(booking.viewingDate), "dd MMM yyyy, HH:mm")}</span>}
@@ -173,9 +272,9 @@ export default function BookingsPage() {
                 <div className="flex items-center gap-2 shrink-0">
                   {(booking.status === "PENDING" || booking.status === "NEED_REVIEW") && (
                     <>
-                      <Button size="sm" onClick={() => statusMutation.mutate({ id: booking.id, status: "APPROVED" })}
+                      <Button size="sm" onClick={() => openApprovalModal(booking)}
                         className="gap-1.5 bg-primary text-primary-foreground hover:bg-primary/90">
-                        <CheckCircle2 className="h-3.5 w-3.5" /> Approve
+                        <CheckCircle2 className="h-3.5 w-3.5" /> Approve & Assign
                       </Button>
                       <Button size="sm" variant="outline" onClick={() => statusMutation.mutate({ id: booking.id, status: "REJECTED" })}
                         className="gap-1.5 border-destructive/30 text-destructive hover:bg-destructive/10">

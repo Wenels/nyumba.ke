@@ -1,8 +1,6 @@
 // This is your Prisma schema file,
 // learn more about it in the docs: https://pris.ly/d/prisma-schema
 
-// Get a free hosted Postgres database in seconds: `npx create-db`
-
 generator client {
   provider = "prisma-client"
   output   = "../generated/prisma"
@@ -11,7 +9,6 @@ generator client {
 datasource db {
   provider = "postgresql"
 }
-
 
 enum Role {
   TENANT
@@ -38,8 +35,6 @@ enum PaymentStatus {
   SUCCESS
   FAILED
 }
-
-
 
 enum BookingStatus {
   PENDING
@@ -86,109 +81,254 @@ enum IssueReportedTo {
   ADMIN
 }
 
-
-
-
-
+enum UnitStatus {
+  VACANT
+  OCCUPIED
+  MAINTENANCE
+  RESERVED
+}
 
 model User {
-  id            String   @id @default(uuid())
-  email         String   @unique
-  phone         String?  @unique
-  passwordHash  String
-  fullName      String
-  role          Role     @default(TENANT)
-  isAdmin       Boolean  @default(false)
-  phoneVerified Boolean  @default(false)
-  verification  VerificationStatus @default(UNVERIFIED)
-  avatarUrl     String?
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  id                    String             @id @default(uuid())
+  email                 String             @unique
+  phone                 String?            @unique
+  passwordHash          String
+  fullName              String
+  role                  Role               @default(TENANT)
+  isAdmin               Boolean            @default(false)
+  phoneVerified         Boolean            @default(false)
+  verification          VerificationStatus @default(UNVERIFIED)
+  avatarUrl             String?
+  createdAt             DateTime           @default(now())
+  updatedAt             DateTime           @updatedAt
 
-  listings      Listing[]
-  savedListings SavedListing[]
-  sentMessages  Message[]      @relation("SentMessages")
-  conversationsAsTenant   Conversation[] @relation("TenantConversations")
-  conversationsAsLandlord Conversation[] @relation("LandlordConversations")
-  reports       Report[]       @relation("ReportingUser")
-  payments      Payment[]
-  passwordResets PasswordReset[]
-  verificationDocs VerificationDoc[]
-  tenantBookings    Booking[]       @relation("TenantBookings")
-  landlordBookings  Booking[]       @relation("LandlordBookings")
-  tenantContracts   Contract[]      @relation("TenantContracts")
-  landlordContracts Contract[]      @relation("LandlordContracts")
-  tenantRentPayments  RentPayment[] @relation("TenantRentPayments")
-  landlordRentPayments RentPayment[] @relation("LandlordRentPayments")
-  tenantIssues      Issue[]         @relation("TenantIssues")
-  landlordIssues    Issue[]         @relation("LandlordIssues")
-
+  properties            Property[]
+  savedProperties       SavedProperty[]
+  sentMessages          Message[]          @relation("SentMessages")
+  conversationsAsTenant Conversation[]     @relation("TenantConversations")
+  conversationsAsLandlord Conversation[]   @relation("LandlordConversations")
+  reports               Report[]           @relation("ReportingUser")
+  payments              Payment[]
+  passwordResets        PasswordReset[]
+  verificationDocs      VerificationDoc[]
+  tenantBookings        Booking[]          @relation("TenantBookings")
+  landlordBookings      Booking[]          @relation("LandlordBookings")
+  tenantContracts       Contract[]         @relation("TenantContracts")
+  landlordContracts     Contract[]         @relation("LandlordContracts")
+  tenantRentPayments    RentPayment[]      @relation("TenantRentPayments")
+  landlordRentPayments  RentPayment[]      @relation("LandlordRentPayments")
+  tenantIssues          Issue[]            @relation("TenantIssues")
+  landlordIssues        Issue[]            @relation("LandlordIssues")
 }
 
-model Listing {
-  id            String        @id @default(uuid())
-  slug          String        @unique
-  title         String
-  description   String
-  price         Int
-  bedrooms      Int
-  bathrooms     Int
-  propertyType  String
-  latitude      Float
-  longitude     Float
-  address       String
-  status        ListingStatus @default(PENDING)
-  expiresAt     DateTime
-  createdAt     DateTime      @default(now())
-  updatedAt     DateTime      @updatedAt
+model Property {
+  id              String                   @id @default(uuid())
+  slug            String                   @unique
+  name            String
+  propertyType    String
+  address         String
+  county          String?
+  town            String?
+  estate          String?
+  ward            String?
+  street          String?
+  postalCode      String?
+  latitude        Float
+  longitude       Float
+  description     String
+  totalFloors     Int                      @default(1)
+  totalUnits      Int                      @default(1)
+  managementType  String                   @default("owner")
+  agentName       String?
+  agentContact    String?
+  legalName       String?
+  idNumber        String?
+  contractType    String                   @default("template")
+  rules           String[]                 @default([])
+  status          ListingStatus            @default(PENDING)
+  expiresAt       DateTime
+  createdAt       DateTime                 @default(now())
+  updatedAt       DateTime                 @updatedAt
 
-  landlordId    String
-  landlord      User          @relation(fields: [landlordId], references: [id], onDelete: Cascade)
+  landlordId      String
+  landlord        User                     @relation(fields: [landlordId], references: [id], onDelete: Cascade)
 
-  photos        Photo[]
-  savedBy       SavedListing[]
-  conversations Conversation[]
-  reports       Report[]
-  bookings          Booking[]
-  contracts         Contract[]
-  issues            Issue[]
-  amenities         Amenity[]
-  conditionReport   ConditionReport?
+  photos          PropertyPhoto[]
+  amenities       PropertyAmenity[]
+  conditionReport PropertyConditionReport?
+  unitTypes       UnitType[]
+  savedBy         SavedProperty[]
+  conversations   Conversation[]
+  reports         Report[]
+  bookings        Booking[]
+  contracts       Contract[]
+  issues          Issue[]
 }
 
-model Photo {
-  id        String  @id @default(uuid())
-  url       String
-  listingId String
-  listing   Listing @relation(fields: [listingId], references: [id], onDelete: Cascade)
-  order     Int     @default(0)
+model UnitType {
+  id              String                  @id @default(uuid())
+  propertyId      String
+  label           String                  // "1 Bedroom", "2 Bedrooms", "Bedsitter", "Studio", etc.
+  bedroomCount    Int                     @default(1)
+  bathrooms       Int                     @default(1)
+  monthlyRent     Int
+  securityDeposit Int
+  description     String?
+  createdAt       DateTime                @default(now())
+  updatedAt       DateTime                @updatedAt
+
+  property        Property                @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  photos          UnitTypePhoto[]
+  amenities       UnitTypeAmenity[]
+  conditionReport UnitTypeConditionReport?
+  units           Unit[]
+  bookings        Booking[]
 }
 
-model SavedListing {
+model Unit {
+  id              String               @id @default(uuid())
+  unitTypeId      String
+  unitNumber      String               // e.g. A01, B03, 102
+  floor           Int                  @default(1)
+  doorNumber      String?
+  status          UnitStatus           @default(VACANT)
+  rentOverride    Int?
+  description     String?
+  createdAt       DateTime             @default(now())
+  updatedAt       DateTime             @updatedAt
+
+  unitType        UnitType             @relation(fields: [unitTypeId], references: [id], onDelete: Cascade)
+  photos          UnitPhoto[]
+  amenities       UnitAmenity[]
+  conditionReport UnitConditionReport?
+  bookings        Booking[]
+  contracts       Contract[]
+  issues          Issue[]
+
+  @@unique([unitTypeId, unitNumber])
+}
+
+model PropertyPhoto {
+  id         String   @id @default(uuid())
+  url        String
+  category   String   @default("General")
+  propertyId String
+  property   Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  order      Int      @default(0)
+}
+
+model UnitTypePhoto {
+  id         String   @id @default(uuid())
+  url        String
+  category   String   @default("General")
+  unitTypeId String
+  unitType   UnitType @relation(fields: [unitTypeId], references: [id], onDelete: Cascade)
+  order      Int      @default(0)
+}
+
+model UnitPhoto {
   id        String   @id @default(uuid())
-  userId    String
-  listingId String
+  url       String
+  category  String   @default("General")
+  unitId    String
+  unit      Unit     @relation(fields: [unitId], references: [id], onDelete: Cascade)
+  order     Int      @default(0)
+}
+
+model PropertyAmenity {
+  id         String   @id @default(uuid())
+  propertyId String
+  name       String
+  available  Boolean  @default(true)
+  createdAt  DateTime @default(now())
+
+  property   Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+}
+
+model UnitTypeAmenity {
+  id         String   @id @default(uuid())
+  unitTypeId String
+  name       String
+  available  Boolean  @default(true)
+  createdAt  DateTime @default(now())
+
+  unitType   UnitType @relation(fields: [unitTypeId], references: [id], onDelete: Cascade)
+}
+
+model UnitAmenity {
+  id        String   @id @default(uuid())
+  unitId    String
+  name      String
+  available Boolean  @default(true)
   createdAt DateTime @default(now())
 
-  user      User    @relation(fields: [userId], references: [id], onDelete: Cascade)
-  listing   Listing @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  unit      Unit     @relation(fields: [unitId], references: [id], onDelete: Cascade)
+}
 
-  @@unique([userId, listingId])
+model PropertyConditionReport {
+  id         String   @id @default(uuid())
+  propertyId String   @unique
+  floors     Json
+  utilities  Json
+  walls      Json
+  allPassed  Boolean  @default(true)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  property   Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+}
+
+model UnitTypeConditionReport {
+  id         String   @id @default(uuid())
+  unitTypeId String   @unique
+  floors     Json
+  utilities  Json
+  walls      Json
+  allPassed  Boolean  @default(true)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  unitType   UnitType @relation(fields: [unitTypeId], references: [id], onDelete: Cascade)
+}
+
+model UnitConditionReport {
+  id        String   @id @default(uuid())
+  unitId    String   @unique
+  floors    Json
+  utilities Json
+  walls     Json
+  allPassed Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  unit      Unit     @relation(fields: [unitId], references: [id], onDelete: Cascade)
+}
+
+model SavedProperty {
+  id         String   @id @default(uuid())
+  userId     String
+  propertyId String
+  createdAt  DateTime @default(now())
+
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  property   Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, propertyId])
 }
 
 model Conversation {
-  id          String   @id @default(uuid())
-  listingId   String
-  tenantId    String
-  landlordId  String
-  createdAt   DateTime @default(now())
+  id         String    @id @default(uuid())
+  propertyId String
+  tenantId   String
+  landlordId String
+  createdAt  DateTime  @default(now())
 
-  listing     Listing  @relation(fields: [listingId], references: [id], onDelete: Cascade)
-  tenant      User     @relation("TenantConversations", fields: [tenantId], references: [id], onDelete: Cascade)
-  landlord    User     @relation("LandlordConversations", fields: [landlordId], references: [id], onDelete: Cascade)
-  messages    Message[]
+  property   Property  @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  tenant     User      @relation("TenantConversations", fields: [tenantId], references: [id], onDelete: Cascade)
+  landlord   User      @relation("LandlordConversations", fields: [landlordId], references: [id], onDelete: Cascade)
+  messages   Message[]
 
-  @@unique([listingId, tenantId])
+  @@unique([propertyId, tenantId])
 }
 
 model Message {
@@ -205,7 +345,7 @@ model Message {
 
 model Report {
   id           String   @id @default(uuid())
-  listingId    String
+  propertyId   String
   reportedById String
   reason       String
   reportType   String   @default("OTHER")
@@ -213,24 +353,23 @@ model Report {
   resolved     Boolean  @default(false)
   createdAt    DateTime @default(now())
 
-  listing      Listing  @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  property     Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
   reportedBy   User     @relation("ReportingUser", fields: [reportedById], references: [id], onDelete: Cascade)
 }
 
 model Payment {
-  id              String        @id @default(uuid())
-  userId          String
-  amount          Int
-  phoneNumber     String
-  status          PaymentStatus @default(PENDING)
-  mpesaReceiptNo  String?
-  checkoutRequestId String?     @unique
-  purpose         String
-  createdAt       DateTime      @default(now())
+  id                String        @id @default(uuid())
+  userId            String
+  amount            Int
+  phoneNumber       String
+  status            PaymentStatus @default(PENDING)
+  mpesaReceiptNo    String?
+  checkoutRequestId String?       @unique
+  purpose           String
+  createdAt         DateTime      @default(now())
 
-  user            User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user              User          @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
-
 
 model PasswordReset {
   id        String   @id @default(uuid())
@@ -243,7 +382,6 @@ model PasswordReset {
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
-
 model VerificationDoc {
   id        String   @id @default(uuid())
   userId    String
@@ -254,92 +392,97 @@ model VerificationDoc {
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
-
-
 model Booking {
-  id              String        @id @default(uuid())
-  listingId       String
-  tenantId        String
-  landlordId      String
-  unitType        String
-  moveInDate      DateTime
-  leaseDuration   Int           @default(12)
-  viewingDate     DateTime?
-  status          BookingStatus @default(PENDING)
-  bookingFee      Int           @default(1000)
-  feePaid         Boolean       @default(false)
-  mpesaReceiptNo  String?
-  notes           String?
-  createdAt       DateTime      @default(now())
-  updatedAt       DateTime      @updatedAt
+  id             String        @id @default(uuid())
+  propertyId     String
+  unitTypeId     String
+  unitId         String?
+  tenantId       String
+  landlordId     String
+  moveInDate     DateTime
+  leaseDuration  Int           @default(12)
+  viewingDate    DateTime?
+  status         BookingStatus @default(PENDING)
+  bookingFee     Int           @default(1000)
+  feePaid        Boolean       @default(false)
+  mpesaReceiptNo String?
+  notes          String?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
 
-  listing         Listing       @relation(fields: [listingId], references: [id], onDelete: Cascade)
-  tenant          User          @relation("TenantBookings", fields: [tenantId], references: [id], onDelete: Cascade)
-  landlord        User          @relation("LandlordBookings", fields: [landlordId], references: [id], onDelete: Cascade)
-  contract        Contract?
+  property       Property      @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  unitType       UnitType      @relation(fields: [unitTypeId], references: [id], onDelete: Cascade)
+  unit           Unit?         @relation(fields: [unitId], references: [id], onDelete: SetNull)
+  tenant         User          @relation("TenantBookings", fields: [tenantId], references: [id], onDelete: Cascade)
+  landlord       User          @relation("LandlordBookings", fields: [landlordId], references: [id], onDelete: Cascade)
+  contract       Contract?
 }
 
 model Contract {
-  id              String         @id @default(uuid())
-  bookingId       String         @unique
-  listingId       String
-  tenantId        String
-  landlordId      String
-  unitType        String
-  monthlyRent     Int
-  securityDeposit Int
-  startDate       DateTime
-  endDate         DateTime
-  status          ContractStatus @default(PENDING)
-  signedByTenant  Boolean        @default(false)
-  signedByLandlord Boolean       @default(false)
-  createdAt       DateTime       @default(now())
-  updatedAt       DateTime       @updatedAt
+  id               String         @id @default(uuid())
+  bookingId        String         @unique
+  propertyId       String
+  unitTypeId       String
+  unitId           String
+  tenantId         String
+  landlordId       String
+  monthlyRent      Int
+  securityDeposit  Int
+  startDate        DateTime
+  endDate          DateTime
+  status           ContractStatus @default(PENDING)
+  signedByTenant   Boolean        @default(false)
+  signedByLandlord Boolean        @default(false)
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
 
-  booking         Booking        @relation(fields: [bookingId], references: [id], onDelete: Cascade)
-  listing         Listing        @relation(fields: [listingId], references: [id], onDelete: Cascade)
-  tenant          User           @relation("TenantContracts", fields: [tenantId], references: [id], onDelete: Cascade)
-  landlord        User           @relation("LandlordContracts", fields: [landlordId], references: [id], onDelete: Cascade)
-  rentPayments    RentPayment[]
+  booking          Booking        @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  property         Property       @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  unit             Unit           @relation(fields: [unitId], references: [id], onDelete: Cascade)
+  tenant           User           @relation("TenantContracts", fields: [tenantId], references: [id], onDelete: Cascade)
+  landlord         User           @relation("LandlordContracts", fields: [landlordId], references: [id], onDelete: Cascade)
+  rentPayments     RentPayment[]
 }
 
 model RentPayment {
-  id              String                @id @default(uuid())
-  contractId      String
-  tenantId        String
-  landlordId      String
-  amount          Int
-  dueDate         DateTime
-  paidDate        DateTime?
-  status          PaymentScheduleStatus @default(UPCOMING)
-  mpesaReceiptNo  String?
-  cycleNumber     Int
-  createdAt       DateTime              @default(now())
+  id             String                @id @default(uuid())
+  contractId     String
+  tenantId       String
+  landlordId     String
+  amount         Int
+  dueDate        DateTime
+  paidDate       DateTime?
+  status         PaymentScheduleStatus @default(UPCOMING)
+  mpesaReceiptNo String?
+  cycleNumber    Int
+  createdAt      DateTime              @default(now())
 
-  contract        Contract              @relation(fields: [contractId], references: [id], onDelete: Cascade)
-  tenant          User                  @relation("TenantRentPayments", fields: [tenantId], references: [id], onDelete: Cascade)
-  landlord        User                  @relation("LandlordRentPayments", fields: [landlordId], references: [id], onDelete: Cascade)
+  contract       Contract              @relation(fields: [contractId], references: [id], onDelete: Cascade)
+  tenant         User                  @relation("TenantRentPayments", fields: [tenantId], references: [id], onDelete: Cascade)
+  landlord       User                  @relation("LandlordRentPayments", fields: [landlordId], references: [id], onDelete: Cascade)
 }
 
 model Issue {
-  id              String          @id @default(uuid())
-  listingId       String
-  tenantId        String
-  landlordId      String
-  category        String
-  subject         String
-  description     String
-  priority        IssuePriority   @default(MODERATE)
-  status          IssueStatus     @default(OPEN)
-  reportedTo      IssueReportedTo @default(LANDLORD)
-  resolvedAt      DateTime?
-  photos          IssuePhoto[]
-  createdAt       DateTime        @default(now())
-  updatedAt       DateTime        @updatedAt
+  id          String          @id @default(uuid())
+  propertyId  String
+  unitId      String?
+  tenantId    String
+  landlordId  String
+  category    String
+  subject     String
+  description String
+  priority    IssuePriority   @default(MODERATE)
+  status      IssueStatus     @default(OPEN)
+  reportedTo  IssueReportedTo @default(LANDLORD)
+  resolvedAt  DateTime?
+  photos      IssuePhoto[]
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
 
-  listing         Listing         @relation(fields: [listingId], references: [id], onDelete: Cascade)
-  tenant          User            @relation("TenantIssues", fields: [tenantId], references: [id], onDelete: Cascade)
-  landlord        User            @relation("LandlordIssues", fields: [landlordId], references: [id], onDelete: Cascade)
+  property    Property        @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  unit        Unit?           @relation(fields: [unitId], references: [id], onDelete: SetNull)
+  tenant      User            @relation("TenantIssues", fields: [tenantId], references: [id], onDelete: Cascade)
+  landlord    User            @relation("LandlordIssues", fields: [landlordId], references: [id], onDelete: Cascade)
 }
 
 model IssuePhoto {
@@ -349,27 +492,4 @@ model IssuePhoto {
   createdAt DateTime @default(now())
 
   issue     Issue    @relation(fields: [issueId], references: [id], onDelete: Cascade)
-}
-
-model Amenity {
-  id        String   @id @default(uuid())
-  listingId String
-  name      String
-  available Boolean  @default(true)
-  createdAt DateTime @default(now())
-
-  listing   Listing  @relation(fields: [listingId], references: [id], onDelete: Cascade)
-}
-
-model ConditionReport {
-  id          String   @id @default(uuid())
-  listingId   String   @unique
-  floors      Json
-  utilities   Json
-  walls       Json
-  allPassed   Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  listing     Listing  @relation(fields: [listingId], references: [id], onDelete: Cascade)
 }

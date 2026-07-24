@@ -182,7 +182,7 @@ export default function EditListingPage({
           </Button>
           <Button
             type="submit"
-            disabled={isSubmitting}
+            loading={isSubmitting}
             className="bg-secondary text-secondary-foreground hover:bg-secondary/90"
           >
             {isSubmitting ? "Saving..." : "Save changes"}

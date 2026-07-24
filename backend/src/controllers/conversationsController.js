@@ -8,14 +8,14 @@ export async function getConversations(req, res) {
       OR: [{ tenantId: userId }, { landlordId: userId }],
     },
     include: {
-      listing: {
+      property: {
         select: {
           id: true,
-          title: true,
+          name: true,
           slug: true,
-          price: true,
           address: true,
           photos: { orderBy: { order: "asc" }, take: 1 },
+          unitTypes: { select: { monthlyRent: true } },
         },
       },
       tenant: {
@@ -32,7 +32,22 @@ export async function getConversations(req, res) {
     orderBy: { createdAt: "desc" },
   });
 
-  res.json({ conversations });
+  const formatted = conversations.map((c) => {
+    const minRent = c.property.unitTypes.length > 0 ? Math.min(...c.property.unitTypes.map((u) => u.monthlyRent)) : 0;
+    return {
+      ...c,
+      listing: {
+        id: c.property.id,
+        title: c.property.name,
+        slug: c.property.slug,
+        address: c.property.address,
+        price: minRent,
+        photos: c.property.photos,
+      },
+    };
+  });
+
+  res.json({ conversations: formatted });
 }
 
 export async function getConversation(req, res) {
@@ -42,14 +57,14 @@ export async function getConversation(req, res) {
   const conversation = await prisma.conversation.findUnique({
     where: { id },
     include: {
-      listing: {
+      property: {
         select: {
           id: true,
-          title: true,
+          name: true,
           slug: true,
-          price: true,
           address: true,
           photos: { orderBy: { order: "asc" }, take: 1 },
+          unitTypes: { select: { monthlyRent: true } },
         },
       },
       tenant: {
@@ -83,35 +98,49 @@ export async function getConversation(req, res) {
     data: { read: true },
   });
 
-  res.json({ conversation });
+  const minRent = conversation.property.unitTypes.length > 0 ? Math.min(...conversation.property.unitTypes.map((u) => u.monthlyRent)) : 0;
+  const formatted = {
+    ...conversation,
+    listing: {
+      id: conversation.property.id,
+      title: conversation.property.name,
+      slug: conversation.property.slug,
+      address: conversation.property.address,
+      price: minRent,
+      photos: conversation.property.photos,
+    },
+  };
+
+  res.json({ conversation: formatted });
 }
 
 export async function startConversation(req, res) {
   const tenantId = req.session.userId;
-  const { listingId, message } = req.body;
+  const { propertyId, listingId, message } = req.body;
+  const targetPropertyId = propertyId || listingId;
 
-  if (!listingId || !message?.trim()) {
-    return res.status(400).json({ error: "Listing ID and message are required" });
+  if (!targetPropertyId || !message?.trim()) {
+    return res.status(400).json({ error: "Property ID and message are required" });
   }
 
-  const listing = await prisma.listing.findUnique({ where: { id: listingId } });
-  if (!listing) return res.status(404).json({ error: "Listing not found" });
+  const property = await prisma.property.findUnique({ where: { id: targetPropertyId } });
+  if (!property) return res.status(404).json({ error: "Property not found" });
 
-  if (listing.landlordId === tenantId) {
+  if (property.landlordId === tenantId) {
     return res.status(400).json({ error: "You cannot message yourself" });
   }
 
   // Find or create conversation
   let conversation = await prisma.conversation.findUnique({
-    where: { listingId_tenantId: { listingId, tenantId } },
+    where: { propertyId_tenantId: { propertyId: targetPropertyId, tenantId } },
   });
 
   if (!conversation) {
     conversation = await prisma.conversation.create({
       data: {
-        listingId,
+        propertyId: targetPropertyId,
         tenantId,
-        landlordId: listing.landlordId,
+        landlordId: property.landlordId,
       },
     });
   }

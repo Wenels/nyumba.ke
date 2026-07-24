@@ -205,7 +205,7 @@ export function RegisterForm() {
 
       <Button
         type="submit"
-        disabled={isRegistering}
+        loading={isRegistering}
         className="mt-6 w-full bg-secondary text-secondary-foreground hover:bg-secondary/90"
         size="lg"
       >

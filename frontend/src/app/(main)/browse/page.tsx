@@ -12,6 +12,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useListings } from "@/app/features/listings/hooks/use-listings";
+import { useDebounce } from "@/hooks/use-debounce";
 import type { Listing } from "@/app/features/listings/hooks/use-listings";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
@@ -104,6 +105,14 @@ function BrowseContent() {
   const [showMoreFilters, setShowMoreFilters] = useState(false);
   const [showMap, setShowMap] = useState(true);
 
+  // Debounce typed area input — 400ms prevents hammering the API on every keystroke
+  const debouncedArea = useDebounce(area, 400);
+
+  // Sync debounced typed input into activeArea (dropdown sets it instantly)
+  useEffect(() => {
+    setActiveArea(debouncedArea);
+  }, [debouncedArea]);
+
   const { data, isLoading, isError } = useListings({
     area: activeArea,
     propertyType,
@@ -160,12 +169,22 @@ function BrowseContent() {
 
           {/* Search row */}
           <div className="mt-3 flex gap-2 flex-wrap">
+            {/* Live search bar — debounced, no Enter needed */}
             <div className="relative flex-1 min-w-48">
               <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input value={area} onChange={(e) => setArea(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && setActiveArea(area)}
-                placeholder="Search ward, estate, property name..."
-                className="pl-9" />
+              <Input value={area} onChange={(e) => { setArea(e.target.value); }}
+                placeholder="Type area, estate, property name..."
+                className="pl-9 pr-9" />
+              {area && (
+                <button
+                  type="button"
+                  onClick={() => { setArea(""); setActiveArea(""); }}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                  aria-label="Clear"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              )}
             </div>
 
             {/* Area dropdown */}

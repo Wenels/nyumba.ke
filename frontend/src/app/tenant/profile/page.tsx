@@ -299,10 +299,10 @@ export default function TenantProfilePage() {
             <div className="flex justify-end pt-2">
               <Button
                 type="submit"
-                disabled={isProfileSubmitting}
+                loading={isProfileSubmitting}
                 className="bg-secondary text-secondary-foreground hover:bg-secondary/90 gap-2"
               >
-                <Lock className="h-4 w-4" />
+                {!isProfileSubmitting && <Lock className="h-4 w-4" />}
                 {isProfileSubmitting ? "Saving..." : "Save Changes"}
               </Button>
             </div>
@@ -397,7 +397,7 @@ export default function TenantProfilePage() {
                 </Button>
                 <Button
                   type="submit"
-                  disabled={isPasswordSubmitting}
+                  loading={isPasswordSubmitting}
                   className="flex-1 bg-primary text-primary-foreground hover:bg-primary/90"
                 >
                   {isPasswordSubmitting ? "Changing..." : "Change Password"}

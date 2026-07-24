@@ -7,6 +7,7 @@ import {
   ImageOff,
   MapPin,
   Search,
+  X,
 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
@@ -18,6 +19,7 @@ import {
 import "leaflet/dist/leaflet.css";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { useDebounce } from "@/hooks/use-debounce";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
 
@@ -29,10 +31,12 @@ export default function TenantMapPage() {
   const mapInstanceRef = useRef<unknown>(null);
   const markersRef = useRef<unknown[]>([]);
   const [search, setSearch] = useState("");
-  const [activeSearch, setActiveSearch] = useState("");
   const [selected, setSelected] = useState<Listing | null>(null);
 
-  const { data, isLoading } = useListings({ area: activeSearch });
+  // Debounce the search input — 400ms delay before querying the API
+  const debouncedSearch = useDebounce(search, 400);
+
+  const { data, isLoading } = useListings({ area: debouncedSearch });
   const listings = data?.listings ?? [];
 
   // Boot up the map once
@@ -101,47 +105,43 @@ export default function TenantMapPage() {
     });
   }, [listings]);
 
-  function handleSearch() {
-    setActiveSearch(search);
-  }
+  // (handleSearch removed — search is now live via debouncedSearch)
 
   return (
     <div className="flex flex-col h-[calc(100vh-120px)] space-y-0">
       {/* Top search bar */}
       <div className="flex items-center gap-3 px-1 pb-4">
         <h1 className="text-xl font-bold tracking-tight shrink-0">Map View</h1>
+        {/* Live search bar — debounced, no button press needed */}
         <div className="relative flex-1 max-w-sm">
           <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && handleSearch()}
-            placeholder="Filter by area — Karen, Kilimani..."
-            className="pl-9 text-sm"
+            placeholder="Type to filter — Karen, Kilimani..."
+            className="pl-9 pr-9 text-sm"
           />
+          {search && (
+            <button
+              type="button"
+              onClick={() => setSearch("")}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+              aria-label="Clear search"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          )}
         </div>
         <Button
           type="button"
           size="sm"
-          onClick={handleSearch}
-          className="bg-secondary text-secondary-foreground hover:bg-secondary/90 shrink-0"
+          variant="outline"
+          disabled={!search}
+          onClick={() => setSearch("")}
+          className="shrink-0 text-destructive border-destructive/30 hover:bg-destructive/10 disabled:opacity-40"
         >
-          Search
+          Clear
         </Button>
-        {activeSearch && (
-          <Button
-            type="button"
-            size="sm"
-            variant="outline"
-            onClick={() => {
-              setSearch("");
-              setActiveSearch("");
-            }}
-            className="shrink-0 text-destructive border-destructive/30 hover:bg-destructive/10"
-          >
-            Clear
-          </Button>
-        )}
         <span className="text-xs text-muted-foreground shrink-0">
           {isLoading ? "Loading..." : `${listings.length} listings`}
         </span>

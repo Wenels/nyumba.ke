@@ -221,9 +221,9 @@ export default function SettingsPage() {
                       {errors[field] && <p className="mt-1 text-xs text-destructive">{errors[field]?.message}</p>}
                     </div>
                   ))}
-                  <Button type="submit" disabled={isSubmitting}
+                  <Button type="submit" loading={isSubmitting}
                     className="gap-2 bg-primary text-primary-foreground hover:bg-primary/90">
-                    <ShieldCheck className="h-4 w-4" />
+                    {!isSubmitting && <ShieldCheck className="h-4 w-4" />}
                     {isSubmitting ? "Changing..." : "Change Password"}
                   </Button>
                 </form>

@@ -253,10 +253,11 @@ export default function VerificationPage() {
           <div className="mt-6 flex items-center gap-4">
             <Button
               onClick={handleSubmitVerification}
-              disabled={isSubmitting || files.length === 0}
+              loading={isSubmitting}
+              disabled={files.length === 0}
               className="gap-2 bg-secondary text-secondary-foreground hover:bg-secondary/90 w-full sm:w-auto"
             >
-              <Upload className="h-4 w-4" />
+              {!isSubmitting && <Upload className="h-4 w-4" />}
               {isSubmitting ? "Submitting..." : "Submit for Verification"}
             </Button>
           </div>

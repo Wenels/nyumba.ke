@@ -1,6 +1,6 @@
 "use client";
 
-import { Search, SlidersHorizontal } from "lucide-react";
+import { Search, SlidersHorizontal, X } from "lucide-react";
 import { useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
 import { BrowseListingCard } from "@/app/features/listings/components/browse-listing-card";
@@ -10,6 +10,7 @@ import {
 } from "@/app/features/listings/hooks/use-listings";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { useDebounce } from "@/hooks/use-debounce";
 
 const AREAS = [
   "Westlands",
@@ -32,14 +33,16 @@ const PROPERTY_TYPES = [
 
 function BrowseContent() {
   const [area, setArea] = useState("");
-  const [activeArea, setActiveArea] = useState("");
   const [propertyType, setPropertyType] = useState("");
   const [minPrice, setMinPrice] = useState<number | undefined>();
   const [maxPrice, setMaxPrice] = useState<number | undefined>();
   const [bedrooms, setBedrooms] = useState<number | undefined>();
 
+  // Debounce the typed area input — fires query 400ms after user stops typing
+  const debouncedArea = useDebounce(area, 400);
+
   const { data, isLoading, isFetching, isError } = useListings({
-    area: activeArea,
+    area: debouncedArea,
     propertyType,
     minPrice,
     maxPrice,
@@ -53,17 +56,12 @@ function BrowseContent() {
     const areaParam = searchParams.get("area");
     if (areaParam) {
       setArea(areaParam);
-      setActiveArea(areaParam);
     }
   }, [searchParams]);
 
-  function handleSearch() {
-    setActiveArea(area);
-  }
-
   function handleAreaPill(a: string) {
-    setActiveArea(a);
-    setArea(a);
+    // Toggle: if the same pill is already typed in, clear it; otherwise set it
+    setArea(area === a ? "" : a);
   }
 
   return (
@@ -77,25 +75,25 @@ function BrowseContent() {
             : `${listings.length} homes available across Nairobi`}
         </p>
 
-        {/* Search bar */}
-        <div className="mt-4 flex gap-2">
-          <div className="relative flex-1 max-w-md">
-            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              value={area}
-              onChange={(e) => setArea(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && handleSearch()}
-              placeholder="Search by area — Kilimani, Karen..."
-              className="pl-9"
-            />
-          </div>
-          <Button
-            type="button"
-            onClick={handleSearch}
-            className="bg-secondary text-secondary-foreground hover:bg-secondary/90"
-          >
-            Search
-          </Button>
+        {/* Search bar — live, no button press needed */}
+        <div className="mt-4 relative max-w-md">
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            value={area}
+            onChange={(e) => setArea(e.target.value)}
+            placeholder="Type to search — Kilimani, Karen..."
+            className="pl-9 pr-9"
+          />
+          {area && (
+            <button
+              type="button"
+              onClick={() => setArea("")}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+              aria-label="Clear search"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          )}
         </div>
 
         {/* Area pills */}
@@ -106,7 +104,7 @@ function BrowseContent() {
               key={a}
               onClick={() => handleAreaPill(a)}
               className={`rounded-full border px-3 py-1 text-sm transition-colors ${
-                activeArea === a
+                debouncedArea === a
                   ? "border-secondary bg-secondary/10 text-secondary"
                   : "border-border hover:border-secondary hover:text-secondary"
               }`}
@@ -114,13 +112,10 @@ function BrowseContent() {
               {a}
             </button>
           ))}
-          {activeArea && (
+          {area && (
             <button
               type="button"
-              onClick={() => {
-                setActiveArea("");
-                setArea("");
-              }}
+              onClick={() => setArea("")}
               className="rounded-full border border-destructive/50 px-3 py-1 text-sm text-destructive hover:bg-destructive/10"
             >
               Clear filter

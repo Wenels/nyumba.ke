@@ -389,33 +389,33 @@ export default function TenantOverviewPage() {
           </div>
 
           {/* Activity widget */}
-          <div className="rounded-xl bg-gradient-to-br from-purple-600 to-blue-500 p-5 text-white">
+          <div className="rounded-xl bg-gradient-to-br from-primary to-primary/80 p-5 text-primary-foreground">
             <div className="flex items-center gap-3 mb-4">
-              <TrendingUp className="h-5 w-5 text-white/70" />
+              <TrendingUp className="h-5 w-5 text-primary-foreground/70" />
               <div>
                 <p className="font-semibold text-sm">Your Activity</p>
-                <p className="text-xs text-white/70">Last 30 days</p>
+                <p className="text-xs text-primary-foreground/70">Last 30 days</p>
               </div>
             </div>
             <div className="mb-3">
-              <div className="flex justify-between text-xs text-white/70 mb-1">
+              <div className="flex justify-between text-xs text-primary-foreground/70 mb-1">
                 <span>Profile Completion</span>
                 <span>{user?.phone ? "85%" : "60%"}</span>
               </div>
-              <div className="h-1.5 rounded-full bg-white/20">
+              <div className="h-1.5 rounded-full bg-primary-foreground/20">
                 <div
-                  className="h-full rounded-full bg-white transition-all"
+                  className="h-full rounded-full bg-primary-foreground transition-all"
                   style={{ width: user?.phone ? "85%" : "60%" }}
                 />
               </div>
             </div>
             <div className="grid grid-cols-2 gap-3 text-center">
               <div>
-                <p className="text-xs text-white/70">Properties Viewed</p>
+                <p className="text-xs text-primary-foreground/70">Properties Viewed</p>
                 <p className="text-lg font-bold">{saved.length}</p>
               </div>
               <div>
-                <p className="text-xs text-white/70">Bookings Made</p>
+                <p className="text-xs text-primary-foreground/70">Bookings Made</p>
                 <p className="text-lg font-bold">{bookings.length}</p>
               </div>
             </div>
