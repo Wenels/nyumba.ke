@@ -183,6 +183,7 @@ model UnitType {
   conditionReport UnitTypeConditionReport?
   units           Unit[]
   bookings        Booking[]
+  contracts       Contract[]
 }
 
 model Unit {
@@ -438,6 +439,7 @@ model Contract {
 
   booking          Booking        @relation(fields: [bookingId], references: [id], onDelete: Cascade)
   property         Property       @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  unitType         UnitType       @relation(fields: [unitTypeId], references: [id], onDelete: Cascade)
   unit             Unit           @relation(fields: [unitId], references: [id], onDelete: Cascade)
   tenant           User           @relation("TenantContracts", fields: [tenantId], references: [id], onDelete: Cascade)
   landlord         User           @relation("LandlordContracts", fields: [landlordId], references: [id], onDelete: Cascade)

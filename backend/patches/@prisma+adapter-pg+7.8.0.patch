@@ -1,0 +1,13 @@
+diff --git a/node_modules/@prisma/adapter-pg/dist/index.mjs b/node_modules/@prisma/adapter-pg/dist/index.mjs
+--- a/node_modules/@prisma/adapter-pg/dist/index.mjs
++++ b/node_modules/@prisma/adapter-pg/dist/index.mjs
+@@ -630,8 +630,7 @@ var PgQueryable = class {
+               return types2.getTypeParser(oid, format);
+             }
+           }
+-        },
+-        values
++        }
+       );
+       return result;
+     } catch (e) {

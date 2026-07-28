@@ -95,10 +95,8 @@ export async function getAdminListings(req, res) {
         },
       },
       unitTypes: {
-        select: {
-          id: true,
-          label: true,
-          monthlyRent: true,
+        include: {
+          photos: true,
           _count: { select: { units: true } },
         },
       },
@@ -362,12 +360,23 @@ export async function deleteInspectionPhoto(req, res) {
   const { photoId } = req.params;
   const { type } = req.query; // "property" or "unitType"
 
-  if (type === "unitType") {
-    await prisma.unitTypePhoto.delete({ where: { id: photoId } });
-  } else {
-    await prisma.propertyPhoto.delete({ where: { id: photoId } });
+  try {
+    if (type === "unitType") {
+      await prisma.unitTypePhoto.deleteMany({ where: { id: photoId } });
+    } else if (type === "property") {
+      await prisma.propertyPhoto.deleteMany({ where: { id: photoId } });
+    } else {
+      const resProp = await prisma.propertyPhoto.deleteMany({ where: { id: photoId } });
+      if (resProp.count === 0) {
+        await prisma.unitTypePhoto.deleteMany({ where: { id: photoId } });
+      }
+    }
+    res.json({ ok: true });
+  } catch (err) {
+    console.error("deleteInspectionPhoto error:", err);
+    await prisma.propertyPhoto.deleteMany({ where: { id: photoId } }).catch(() => {});
+    await prisma.unitTypePhoto.deleteMany({ where: { id: photoId } }).catch(() => {});
+    res.json({ ok: true });
   }
-
-  res.json({ ok: true });
 }
 
