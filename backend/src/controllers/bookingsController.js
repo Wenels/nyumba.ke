@@ -187,10 +187,9 @@ export async function getBooking(req, res) {
 }
 
 export async function updateBookingStatus(req, res) {
-  const { status, notes, unitId } = req.body;
+  const { status, notes } = req.body;
   const booking = await prisma.booking.findUnique({
     where: { id: req.params.id },
-    include: { unitType: { include: { units: true } } },
   });
 
   if (!booking) return res.status(404).json({ error: "Booking not found" });
@@ -198,23 +197,106 @@ export async function updateBookingStatus(req, res) {
     return res.status(403).json({ error: "Forbidden" });
   }
 
-  // Resolve assigned unit
-  let assignedUnitId = unitId || booking.unitId;
-
-  // If landlord didn't pick a specific unit, auto-pick the first VACANT unit in this UnitType
-  if (status === "APPROVED" && !assignedUnitId) {
-    const vacantUnit = booking.unitType.units.find((u) => u.status === "VACANT");
-    if (vacantUnit) {
-      assignedUnitId = vacantUnit.id;
-    }
-  }
-
   const updated = await prisma.booking.update({
     where: { id: req.params.id },
     data: {
       status,
       ...(notes && { notes }),
-      ...(assignedUnitId && { unitId: assignedUnitId }),
+    },
+    include: {
+      property: true,
+      unitType: true,
+      unit: true,
+      tenant: { select: { id: true, fullName: true, email: true, phone: true } },
+    },
+  });
+
+  res.json({ booking: updated });
+}
+
+export async function getAvailableUnitsForBooking(req, res) {
+  const booking = await prisma.booking.findUnique({
+    where: { id: req.params.id },
+    include: {
+      unitType: {
+        include: {
+          units: {
+            where: {
+              status: { in: ["VACANT", "RESERVED"] }
+            },
+            orderBy: [{ floor: "asc" }, { unitNumber: "asc" }],
+            include: {
+              photos: { take: 1, orderBy: { order: "asc" } },
+              amenities: true,
+            },
+          },
+        },
+      },
+    },
+  });
+
+  if (!booking) return res.status(404).json({ error: "Booking not found" });
+
+  const units = booking.unitType?.units || [];
+  res.json({ units, unitType: booking.unitType });
+}
+
+export async function completeViewing(req, res) {
+  const booking = await prisma.booking.findUnique({ where: { id: req.params.id } });
+  if (!booking) return res.status(404).json({ error: "Booking not found" });
+
+  const isTenant = booking.tenantId === req.session.userId;
+  const isLandlord = booking.landlordId === req.session.userId;
+
+  if (!isTenant && !isLandlord && !req.session.isAdmin) {
+    return res.status(403).json({ error: "Forbidden" });
+  }
+
+  const updated = await prisma.booking.update({
+    where: { id: req.params.id },
+    data: { status: "VIEWING_COMPLETED" },
+    include: {
+      property: true,
+      unitType: true,
+      unit: true,
+      tenant: { select: { id: true, fullName: true, email: true, phone: true } },
+    },
+  });
+
+  res.json({ booking: updated, message: "Physical viewing marked as completed." });
+}
+
+export async function selectUnit(req, res) {
+  const { unitId } = req.body;
+  const booking = await prisma.booking.findUnique({
+    where: { id: req.params.id },
+    include: { unitType: true },
+  });
+
+  if (!booking) return res.status(404).json({ error: "Booking not found" });
+  if (booking.tenantId !== req.session.userId) {
+    return res.status(403).json({ error: "Forbidden" });
+  }
+
+  const validStatuses = ["APPROVED", "UNIT_SELECTED", "VIEWING_SCHEDULED", "VIEWING_COMPLETED"];
+  if (!validStatuses.includes(booking.status)) {
+    return res.status(400).json({ error: "Booking must be approved before selecting a unit" });
+  }
+
+  const unit = await prisma.unit.findUnique({ where: { id: unitId } });
+  if (!unit || unit.unitTypeId !== booking.unitTypeId) {
+    return res.status(400).json({ error: "Selected unit does not belong to this unit category" });
+  }
+
+  if (unit.status !== "VACANT" && unit.status !== "RESERVED" && booking.unitId !== unitId) {
+    return res.status(400).json({ error: "Selected unit is not currently available" });
+  }
+
+  const updated = await prisma.booking.update({
+    where: { id: req.params.id },
+    data: {
+      unitId: unitId,
+      status: "UNIT_SELECTED",
     },
     include: {
       property: true,
@@ -223,43 +305,7 @@ export async function updateBookingStatus(req, res) {
     },
   });
 
-  // On approval, mark assigned unit as RESERVED and auto-generate contract
-  if (status === "APPROVED") {
-    if (assignedUnitId) {
-      await prisma.unit.update({
-        where: { id: assignedUnitId },
-        data: { status: "RESERVED" },
-      });
-    }
-
-    if (!booking.contract && assignedUnitId) {
-      const assignedUnit = await prisma.unit.findUnique({ where: { id: assignedUnitId } });
-      const rent = assignedUnit?.rentOverride || booking.unitType.monthlyRent;
-      const deposit = booking.unitType.securityDeposit;
-
-      const startDate = new Date(booking.moveInDate);
-      const endDate = new Date(startDate);
-      endDate.setMonth(endDate.getMonth() + booking.leaseDuration);
-
-      await prisma.contract.create({
-        data: {
-          bookingId: booking.id,
-          propertyId: booking.propertyId,
-          unitTypeId: booking.unitTypeId,
-          unitId: assignedUnitId,
-          tenantId: booking.tenantId,
-          landlordId: booking.landlordId,
-          monthlyRent: rent,
-          securityDeposit: deposit,
-          startDate,
-          endDate,
-          status: "PENDING",
-        },
-      });
-    }
-  }
-
-  res.json({ booking: updated });
+  res.json({ booking: updated, message: "Unit selected! Landlord will prepare the contract." });
 }
 
 export async function cancelBooking(req, res) {
