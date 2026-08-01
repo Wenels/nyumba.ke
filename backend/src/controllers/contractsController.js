@@ -93,8 +93,93 @@ export async function getContract(req, res) {
   res.json({ contract: formatted });
 }
 
+export async function prepareContract(req, res) {
+  const { bookingId, unitId, monthlyRent, securityDeposit, startDate, leaseDuration } = req.body;
+
+  const booking = await prisma.booking.findUnique({
+    where: { id: bookingId },
+    include: { unitType: true, contract: true },
+  });
+
+  if (!booking) return res.status(404).json({ error: "Booking not found" });
+  if (booking.landlordId !== req.session.userId && !req.session.isAdmin) {
+    return res.status(403).json({ error: "Forbidden" });
+  }
+
+  const assignedUnitId = unitId || booking.unitId;
+  if (!assignedUnitId) {
+    return res.status(400).json({ error: "A specific unit must be selected or assigned" });
+  }
+
+  const unit = await prisma.unit.findUnique({ where: { id: assignedUnitId } });
+  if (!unit) return res.status(404).json({ error: "Assigned unit not found" });
+
+  const finalRent = monthlyRent ? parseInt(monthlyRent) : (unit.rentOverride || booking.unitType.monthlyRent);
+  const finalDeposit = securityDeposit ? parseInt(securityDeposit) : booking.unitType.securityDeposit;
+
+  const sDate = startDate ? new Date(startDate) : new Date(booking.moveInDate);
+  const duration = leaseDuration ? parseInt(leaseDuration) : booking.leaseDuration;
+  const eDate = new Date(sDate);
+  eDate.setMonth(eDate.getMonth() + duration);
+
+  // Reserve unit in system
+  await prisma.unit.update({
+    where: { id: assignedUnitId },
+    data: { status: "RESERVED" },
+  });
+
+  let contract;
+  if (booking.contract) {
+    contract = await prisma.contract.update({
+      where: { id: booking.contract.id },
+      data: {
+        unitId: assignedUnitId,
+        monthlyRent: finalRent,
+        securityDeposit: finalDeposit,
+        startDate: sDate,
+        endDate: eDate,
+        signedByLandlord: true,
+        signedByTenant: false,
+        status: "PENDING",
+      },
+    });
+  } else {
+    contract = await prisma.contract.create({
+      data: {
+        bookingId: booking.id,
+        propertyId: booking.propertyId,
+        unitTypeId: booking.unitTypeId,
+        unitId: assignedUnitId,
+        tenantId: booking.tenantId,
+        landlordId: booking.landlordId,
+        monthlyRent: finalRent,
+        securityDeposit: finalDeposit,
+        startDate: sDate,
+        endDate: eDate,
+        signedByLandlord: true,
+        signedByTenant: false,
+        status: "PENDING",
+      },
+    });
+  }
+
+  await prisma.booking.update({
+    where: { id: bookingId },
+    data: {
+      unitId: assignedUnitId,
+      status: "CONTRACT_PREPARED",
+    },
+  });
+
+  res.json({ contract, message: "Contract prepared and unit assigned successfully." });
+}
+
 export async function signContract(req, res) {
-  const contract = await prisma.contract.findUnique({ where: { id: req.params.id } });
+  const contract = await prisma.contract.findUnique({
+    where: { id: req.params.id },
+    include: { booking: true },
+  });
+
   if (!contract) return res.status(404).json({ error: "Contract not found" });
 
   const isTenant = contract.tenantId === req.session.userId;
@@ -104,27 +189,66 @@ export async function signContract(req, res) {
 
   const data = isTenant ? { signedByTenant: true } : { signedByLandlord: true };
 
-  const updated = await prisma.contract.update({ where: { id: req.params.id }, data });
+  let updated = await prisma.contract.update({ where: { id: req.params.id }, data });
 
-  // Activate contract if both signed
-  if (updated.signedByTenant && updated.signedByLandlord) {
-    const activated = await prisma.contract.update({
+  // When tenant signs, transition to AWAITING_PAYMENT and update booking status to CONTRACT_CONFIRMED
+  if (updated.signedByTenant) {
+    updated = await prisma.contract.update({
       where: { id: req.params.id },
-      data: { status: "ACTIVE" },
+      data: { status: "AWAITING_PAYMENT" },
     });
 
-    // Mark assigned unit as OCCUPIED
-    if (contract.unitId) {
-      await prisma.unit.update({
-        where: { id: contract.unitId },
-        data: { status: "OCCUPIED" },
+    if (contract.bookingId) {
+      await prisma.booking.update({
+        where: { id: contract.bookingId },
+        data: { status: "CONTRACT_CONFIRMED" },
       });
     }
+  }
 
-    // Generate rent payment schedule
-    const months = Math.ceil(
+  res.json({ contract: updated });
+}
+
+export async function payInitialContract(req, res) {
+  const { mpesaReceiptNo } = req.body;
+  const contract = await prisma.contract.findUnique({
+    where: { id: req.params.id },
+    include: { booking: true },
+  });
+
+  if (!contract) return res.status(404).json({ error: "Contract not found" });
+  if (contract.tenantId !== req.session.userId && contract.landlordId !== req.session.userId && !req.session.isAdmin) {
+    return res.status(403).json({ error: "Forbidden" });
+  }
+
+  // Activate contract
+  const activated = await prisma.contract.update({
+    where: { id: req.params.id },
+    data: { status: "ACTIVE" },
+  });
+
+  // Mark assigned unit as OCCUPIED
+  if (contract.unitId) {
+    await prisma.unit.update({
+      where: { id: contract.unitId },
+      data: { status: "OCCUPIED" },
+    });
+  }
+
+  // Mark booking as COMPLETED
+  if (contract.bookingId) {
+    await prisma.booking.update({
+      where: { id: contract.bookingId },
+      data: { status: "COMPLETED" },
+    });
+  }
+
+  // Generate rent payment schedules if not already existing
+  const existingPayments = await prisma.rentPayment.count({ where: { contractId: contract.id } });
+  if (existingPayments === 0) {
+    const months = Math.max(1, Math.ceil(
       (new Date(contract.endDate).getTime() - new Date(contract.startDate).getTime()) / (1000 * 60 * 60 * 24 * 30)
-    );
+    ));
 
     const schedules = [];
     for (let i = 0; i < months; i++) {
@@ -137,13 +261,14 @@ export async function signContract(req, res) {
         amount: contract.monthlyRent,
         dueDate,
         cycleNumber: i + 1,
-        status: i === 0 ? "DUE_NOW" : "UPCOMING",
+        status: i === 0 ? "PAID" : "UPCOMING",
+        mpesaReceiptNo: i === 0 ? (mpesaReceiptNo || "ONLINE_PAYMENT") : null,
+        paidDate: i === 0 ? new Date() : null,
       });
     }
 
     await prisma.rentPayment.createMany({ data: schedules });
-    return res.json({ contract: activated });
   }
 
-  res.json({ contract: updated });
+  res.json({ contract: activated, message: "Payment confirmed! Lease is active and unit is occupied." });
 }

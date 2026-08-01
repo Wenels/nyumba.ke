@@ -4,14 +4,19 @@ import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { format } from "date-fns";
-import { FileText, CheckCircle2, Clock, Lock, PenLine } from "lucide-react";
-import { api } from "@/lib/api";
+import { FileText, CheckCircle2, Clock, Lock, PenLine, DollarSign, X, Phone, ShieldCheck } from "lucide-react";
+import { api, ApiError } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 
 export default function TenantContractsPage() {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
+  const [reviewingContract, setReviewingContract] = useState<any>(null);
+  const [payingContract, setPayingContract] = useState<any>(null);
+  const [phone, setPhone] = useState("");
+
   const queryClient = useQueryClient();
 
   const { data, isLoading } = useQuery({
@@ -23,9 +28,25 @@ export default function TenantContractsPage() {
     mutationFn: (id: string) => api.patch(`/api/contracts/${id}/sign`, {}),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["tenant-contracts"] });
-      toast.success("Contract signed!");
+      toast.success("Tenancy Agreement confirmed and signed!", { description: "You can now proceed to make your initial rent and deposit payment." });
+      setReviewingContract(null);
     },
-    onError: () => toast.error("Failed to sign contract"),
+    onError: (err) => {
+      toast.error("Failed to sign contract", { description: err instanceof ApiError ? (err.body as any)?.error : "Error" });
+    },
+  });
+
+  const payMutation = useMutation({
+    mutationFn: ({ contractId, phone }: { contractId: string; phone: string }) =>
+      api.post(`/api/contracts/${contractId}/pay-initial`, { phone }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["tenant-contracts"] });
+      toast.success("Initial payment completed!", { description: "Your tenancy contract is active and your unit is now officially occupied." });
+      setPayingContract(null);
+    },
+    onError: (err) => {
+      toast.error("Payment failed", { description: err instanceof ApiError ? (err.body as any)?.error : "Error" });
+    },
   });
 
   const contracts = data?.contracts ?? [];
@@ -39,9 +60,117 @@ export default function TenantContractsPage() {
 
   return (
     <div className="space-y-6">
+      {/* Stage 6: Tenant Contract Verification Modal */}
+      {reviewingContract && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-foreground/60 p-4">
+          <div className="w-full max-w-lg rounded-2xl bg-background p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between border-b border-border pb-3">
+              <div className="flex items-center gap-2">
+                <ShieldCheck className="h-5 w-5 text-primary" />
+                <h3 className="font-bold text-lg">Stage 6: Review & Confirm Tenancy Agreement</h3>
+              </div>
+              <button onClick={() => setReviewingContract(null)} className="text-muted-foreground hover:text-foreground">
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="rounded-xl border border-border bg-card p-4 space-y-3">
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Contract Details Verification</p>
+              
+              <div className="grid grid-cols-2 gap-3 text-sm">
+                <div>
+                  <p className="text-xs text-muted-foreground">Property</p>
+                  <p className="font-semibold">{reviewingContract.listing?.title}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Assigned Door / Unit #</p>
+                  <p className="font-bold text-primary">Unit {reviewingContract.unit?.unitNumber || "Door " + reviewingContract.unitNumber}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Monthly Rent</p>
+                  <p className="font-bold">KSh {reviewingContract.monthlyRent?.toLocaleString()}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Security Deposit</p>
+                  <p className="font-bold">KSh {reviewingContract.securityDeposit?.toLocaleString()}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Lease Start Date</p>
+                  <p className="font-semibold">{format(new Date(reviewingContract.startDate), "dd MMMM yyyy")}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Lease End Date</p>
+                  <p className="font-semibold">{format(new Date(reviewingContract.endDate), "dd MMMM yyyy")}</p>
+                </div>
+              </div>
+
+              <div className="pt-2 border-t border-border text-xs text-muted-foreground">
+                Landlord: <strong className="text-foreground">{reviewingContract.landlord?.fullName}</strong> ({reviewingContract.landlord?.email})
+              </div>
+            </div>
+
+            <div className="rounded-xl bg-amber-50 border border-amber-200 p-3 text-xs text-amber-800 space-y-1">
+              <p className="font-semibold">⚠️ Legal Confirmation</p>
+              <p>By signing, you confirm that all details above (door number, rent, deposit, terms) are accurate and acceptable.</p>
+            </div>
+
+            <div className="pt-3 flex gap-3 border-t border-border">
+              <Button variant="outline" className="flex-1" onClick={() => setReviewingContract(null)}>Cancel</Button>
+              <Button className="flex-1 bg-primary text-primary-foreground hover:bg-primary/90 font-semibold"
+                loading={signMutation.isPending}
+                onClick={() => signMutation.mutate(reviewingContract.id)}>
+                Sign & Confirm Agreement →
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Stage 7: Initial Payment Modal */}
+      {payingContract && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-foreground/60 p-4">
+          <div className="w-full max-w-sm rounded-2xl bg-background p-6 shadow-2xl space-y-4">
+            <div className="flex items-center justify-between border-b border-border pb-3">
+              <div className="flex items-center gap-2">
+                <DollarSign className="h-5 w-5 text-primary" />
+                <h3 className="font-bold text-lg">Stage 7: Initial Rent & Deposit Payment</h3>
+              </div>
+              <button onClick={() => setPayingContract(null)} className="text-muted-foreground hover:text-foreground">
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="rounded-xl bg-primary/10 border border-primary/20 p-4 text-center">
+              <p className="text-xs text-muted-foreground uppercase">Total Initial Payable</p>
+              <p className="text-3xl font-extrabold text-primary mt-1">
+                KSh {(payingContract.monthlyRent + payingContract.securityDeposit).toLocaleString()}
+              </p>
+              <p className="text-xs text-muted-foreground mt-1">Rent (KSh {payingContract.monthlyRent.toLocaleString()}) + Deposit (KSh {payingContract.securityDeposit.toLocaleString()})</p>
+            </div>
+
+            <div>
+              <Label className="text-xs font-semibold uppercase text-muted-foreground">M-Pesa Phone Number</Label>
+              <div className="mt-1 flex">
+                <span className="flex items-center rounded-l-md border border-r-0 border-input bg-muted px-3 text-sm text-muted-foreground whitespace-nowrap">
+                  🇰🇪 +254
+                </span>
+                <Input value={phone} onChange={(e) => setPhone(e.target.value)}
+                  placeholder="7XX XXX XXX" className="rounded-l-none" />
+              </div>
+            </div>
+
+            <Button className="w-full bg-primary text-primary-foreground hover:bg-primary/90 font-semibold"
+              loading={payMutation.isPending}
+              onClick={() => payMutation.mutate({ contractId: payingContract.id, phone })}>
+              Complete Payment & Activate Lease
+            </Button>
+          </div>
+        </div>
+      )}
+
       <div>
         <h1 className="text-2xl font-bold tracking-tight">My Contracts</h1>
-        <p className="mt-1 text-muted-foreground">View and manage your lease agreements</p>
+        <p className="mt-1 text-muted-foreground">Verify details, sign agreements, and activate your tenancy lease</p>
       </div>
 
       {/* Stats */}
@@ -49,7 +178,7 @@ export default function TenantContractsPage() {
         {[
           { label: "Total Contracts", value: stats.total, icon: FileText },
           { label: "Active", value: stats.active, icon: CheckCircle2, color: "text-primary" },
-          { label: "Pending", value: stats.pending, icon: Clock, color: "text-secondary" },
+          { label: "Pending Signatures", value: stats.pending, icon: Clock, color: "text-amber-600" },
           { label: "Locked", value: stats.locked, icon: Lock, color: "text-blue-500" },
         ].map(({ label, value, icon: Icon, color }) => (
           <div key={label} className="rounded-xl border border-border bg-card p-4">
@@ -69,7 +198,7 @@ export default function TenantContractsPage() {
         <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}
           className="rounded-md border border-input bg-background px-3 py-2 text-sm">
           <option value="">All Status</option>
-          {["PENDING", "ACTIVE", "EXPIRED", "TERMINATED"].map((s) => (
+          {["PENDING", "AWAITING_PAYMENT", "ACTIVE", "EXPIRED", "TERMINATED"].map((s) => (
             <option key={s} value={s}>{s}</option>
           ))}
         </select>
@@ -82,51 +211,58 @@ export default function TenantContractsPage() {
       ) : filtered.length === 0 ? (
         <div className="rounded-xl border border-dashed border-border p-12 text-center">
           <FileText className="mx-auto h-10 w-10 text-muted-foreground" />
-          <p className="mt-3 font-semibold">No contracts yet</p>
-          <p className="mt-1 text-sm text-muted-foreground">Your lease agreements will appear here</p>
+          <p className="mt-3 font-semibold">No contracts found</p>
+          <p className="mt-1 text-sm text-muted-foreground">Your tenancy agreements will appear here once prepared by the landlord</p>
         </div>
       ) : (
-        <div className="space-y-3">
+        <div className="space-y-4">
           {filtered.map((contract: any) => (
-            <div key={contract.id} className="rounded-xl border border-border bg-card p-5">
+            <div key={contract.id} className="rounded-xl border border-border bg-card p-5 space-y-3">
               <div className="flex items-start justify-between gap-4 flex-wrap">
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
-                    <p className="font-semibold">{contract.listing?.title}</p>
-                    <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${
-                      contract.status === "ACTIVE" ? "bg-primary/10 text-primary" :
-                      contract.status === "PENDING" ? "bg-yellow-100 text-yellow-700" :
-                      contract.status === "EXPIRED" ? "bg-muted text-muted-foreground" :
-                      "bg-destructive/10 text-destructive"
-                    }`}>{contract.status}</span>
+                    <p className="font-bold text-lg">{contract.listing?.title}</p>
+                    <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${
+                      contract.status === "ACTIVE" ? "bg-emerald-100 text-emerald-800" :
+                      contract.status === "AWAITING_PAYMENT" ? "bg-blue-100 text-blue-800" :
+                      contract.status === "PENDING" ? "bg-amber-100 text-amber-800" :
+                      "bg-muted text-muted-foreground"
+                    }`}>{contract.status.replace("_", " ")}</span>
                   </div>
-                  <p className="mt-1 text-sm text-muted-foreground">{contract.listing?.address}</p>
+
+                  <p className="mt-0.5 text-sm text-muted-foreground">{contract.listing?.address}</p>
+
                   <div className="mt-2 flex flex-wrap gap-4 text-xs text-muted-foreground">
-                    <span>Unit: {contract.unitType}</span>
+                    <span>Assigned Unit: <strong className="text-primary font-bold">Door {contract.unit?.unitNumber || contract.unitNumber}</strong></span>
                     <span>Rent: KSh {contract.monthlyRent.toLocaleString()}/mo</span>
                     <span>Deposit: KSh {contract.securityDeposit.toLocaleString()}</span>
                     <span>Start: {format(new Date(contract.startDate), "dd MMM yyyy")}</span>
-                    <span>End: {format(new Date(contract.endDate), "dd MMM yyyy")}</span>
                   </div>
+
                   <div className="mt-2 flex gap-3 text-xs">
-                    <span className={`flex items-center gap-1 ${contract.signedByTenant ? "text-primary" : "text-muted-foreground"}`}>
-                      <CheckCircle2 className="h-3 w-3" /> Tenant signed
+                    <span className={`flex items-center gap-1 ${contract.signedByTenant ? "text-primary font-medium" : "text-muted-foreground"}`}>
+                      <CheckCircle2 className="h-3.5 w-3.5" /> Tenant confirmed & signed
                     </span>
-                    <span className={`flex items-center gap-1 ${contract.signedByLandlord ? "text-primary" : "text-muted-foreground"}`}>
-                      <CheckCircle2 className="h-3 w-3" /> Landlord signed
+                    <span className={`flex items-center gap-1 ${contract.signedByLandlord ? "text-primary font-medium" : "text-muted-foreground"}`}>
+                      <CheckCircle2 className="h-3.5 w-3.5" /> Landlord signed
                     </span>
-                  </div>
-                  <div className="mt-1 text-xs text-muted-foreground">
-                    Landlord: {contract.landlord?.fullName} · {contract.landlord?.phone}
                   </div>
                 </div>
-                <div className="shrink-0">
+
+                <div className="shrink-0 flex items-center gap-2">
+                  {/* Stage 6 Action: Review & Sign Contract */}
                   {contract.status === "PENDING" && !contract.signedByTenant && (
-                    <Button size="sm"
-                      onClick={() => signMutation.mutate(contract.id)}
-                      disabled={signMutation.isPending}
-                      className="gap-1.5 bg-primary text-primary-foreground hover:bg-primary/90">
-                      <PenLine className="h-3.5 w-3.5" /> Sign Contract
+                    <Button size="sm" onClick={() => setReviewingContract(contract)}
+                      className="gap-1.5 bg-primary text-primary-foreground hover:bg-primary/90 font-semibold">
+                      <PenLine className="h-4 w-4" /> Verify & Sign Contract (Stage 6)
+                    </Button>
+                  )}
+
+                  {/* Stage 7 Action: Proceed to Payment */}
+                  {contract.status === "AWAITING_PAYMENT" && (
+                    <Button size="sm" onClick={() => setPayingContract(contract)}
+                      className="gap-1.5 bg-emerald-600 text-white hover:bg-emerald-700 font-semibold">
+                      <DollarSign className="h-4 w-4" /> Make Initial Payment (Stage 7)
                     </Button>
                   )}
                 </div>

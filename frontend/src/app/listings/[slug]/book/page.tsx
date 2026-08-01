@@ -369,18 +369,22 @@ export default function BookListingPage({ params }: { params: Promise<{ slug: st
               </div>
 
               {/* Steps */}
-              <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-2 text-xs">
+                <p className="font-semibold text-muted-foreground uppercase tracking-wide mb-2">Booking Process Roadmap</p>
                 {[
-                  { n: "1", label: "Pay booking fee", desc: "KES 1,000 via M-Pesa" },
-                  { n: "2", label: "Landlord assigns unit", desc: "Selects specific room & approves" },
-                  { n: "3", label: "Sign contract", desc: "Pay rent & deposit" },
-                  { n: "4", label: "Move in!", desc: "On your chosen date" },
+                  { n: "1", label: "Book Category", desc: "Select unit type & pay commitment fee" },
+                  { n: "2", label: "Landlord Approval", desc: "Landlord approves your booking request" },
+                  { n: "3", label: "Physical Viewing", desc: "Visit property & inspect available units" },
+                  { n: "4", label: "Unit Selection", desc: "Select your preferred specific door number" },
+                  { n: "5", label: "Contract Prep", desc: "Landlord assigns unit & prepares agreement" },
+                  { n: "6", label: "Confirm Contract", desc: "Verify door #, rent & sign lease agreement" },
+                  { n: "7", label: "Payment & Move In", desc: "Pay initial rent/deposit to get your keys!" },
                 ].map(({ n, label, desc }) => (
-                  <div key={n} className="flex items-start gap-2.5">
-                    <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-bold">{n}</span>
-                    <div>
-                      <p className="text-sm font-medium">{label}</p>
-                      <p className="text-xs text-muted-foreground">{desc}</p>
+                  <div key={n} className="flex items-center gap-2.5 rounded-lg border border-border bg-background p-2">
+                    <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary text-xs font-bold">{n}</span>
+                    <div className="flex-1 min-w-0">
+                      <span className="font-medium text-foreground mr-1.5">{label}:</span>
+                      <span className="text-muted-foreground">{desc}</span>
                     </div>
                   </div>
                 ))}
