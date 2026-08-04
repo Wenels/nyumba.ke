@@ -1,11 +1,12 @@
 import { Router } from "express";
-import { getTenantRentPayments, getLandlordRentPayments, payRent } from "../controllers/rentPaymentsController.js";
+import { getTenantRentPayments, getLandlordRentPayments, initiateRentPayment, confirmRentPayment } from "../controllers/rentPaymentsController.js";
 import { requireAuth } from "../middleware/auth.js";
 
 const router = Router();
 
 router.get("/tenant", requireAuth, getTenantRentPayments);
 router.get("/landlord", requireAuth, getLandlordRentPayments);
-router.patch("/:id/pay", requireAuth, payRent);
+router.post("/:id/pay", requireAuth, initiateRentPayment);
+router.post("/:id/confirm-payment", requireAuth, confirmRentPayment);
 
 export default router;

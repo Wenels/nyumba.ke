@@ -1,6 +1,6 @@
 "use client";
 
-import { use, useState, useEffect } from "react";
+import { use, useState, useEffect, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { useQuery, useMutation } from "@tanstack/react-query";
@@ -8,7 +8,8 @@ import { toast } from "sonner";
 import { format } from "date-fns";
 import {
   ArrowLeft, CheckCircle2, ChevronRight,
-  Home, MapPin, DollarSign, Phone, Key
+  Home, MapPin, DollarSign, Phone, Key,
+  Loader2, AlertCircle
 } from "lucide-react";
 import { api, ApiError } from "@/lib/api";
 import { useAuth } from "@/app/features/auth/hooks/use-auth";
@@ -23,6 +24,7 @@ const STEPS = [
   { num: 1, label: "Unit Category" },
   { num: 2, label: "Schedule" },
   { num: 3, label: "Review" },
+  { num: 4, label: "Pay Fee" },
 ];
 
 export default function BookListingPage({ params }: { params: Promise<{ slug: string }> }) {
@@ -39,6 +41,10 @@ export default function BookListingPage({ params }: { params: Promise<{ slug: st
   const [phoneNumber, setPhoneNumber] = useState(user?.phone?.replace(/^0/, "") ?? "");
   const [showMpesa, setShowMpesa] = useState(false);
   const [bookingCreated, setBookingCreated] = useState<any>(null);
+
+  // Payment states
+  const [paymentStatus, setPaymentStatus] = useState<"idle" | "polling" | "success" | "timeout">("idle");
+  const [checkoutRequestId, setCheckoutRequestId] = useState<string | null>(null);
 
   const { data, isLoading } = useQuery({
     queryKey: ["listings", slug],
@@ -65,6 +71,7 @@ export default function BookListingPage({ params }: { params: Promise<{ slug: st
     mutationFn: (data: any) => api.post("/api/bookings", data),
     onSuccess: (res: any) => {
       setBookingCreated(res.booking);
+      setStep(4);
       setShowMpesa(true);
     },
     onError: (err) => {
@@ -74,11 +81,68 @@ export default function BookListingPage({ params }: { params: Promise<{ slug: st
   });
 
   const payMutation = useMutation({
-    mutationFn: () => Promise.resolve({ ok: true }),
-    onSuccess: () => {
-      toast.success("Booking confirmed!", { description: "The landlord will review and assign your unit." });
-      router.push("/tenant/bookings");
+    mutationFn: (phone: string) => api.post(`/api/bookings/${bookingCreated.id}/pay`, { phone }),
+    onSuccess: (res: any) => {
+      setCheckoutRequestId(res.checkoutRequestId);
+      setPaymentStatus("polling");
     },
+    onError: (err) => {
+      const message = err instanceof ApiError ? (err.body as any)?.error : "Payment initiation failed";
+      toast.error("Error", { description: message });
+      setPaymentStatus("idle");
+    },
+  });
+
+  // Polling logic
+  useEffect(() => {
+    if (paymentStatus !== "polling" || !bookingCreated?.id) return;
+
+    let timeoutId: NodeJS.Timeout;
+    const pollInterval = setInterval(async () => {
+      try {
+        const res = await api.get(`/api/bookings/${bookingCreated.id}`) as { booking: any };
+        if (res.booking?.feePaid) {
+          setPaymentStatus("success");
+          clearInterval(pollInterval);
+          toast.success("Payment successful!", { description: "Your booking is now visible to the landlord." });
+          setTimeout(() => {
+            router.push("/tenant/bookings");
+          }, 2000);
+        }
+      } catch (err) {
+        console.error("Polling error", err);
+      }
+    }, 5000);
+
+    // Timeout after 2 minutes (120000ms)
+    timeoutId = setTimeout(() => {
+      clearInterval(pollInterval);
+      if (paymentStatus === "polling") {
+        setPaymentStatus("timeout");
+        toast.error("Payment timed out", { description: "We didn't receive confirmation. You can try again." });
+      }
+    }, 120000);
+
+    return () => {
+      clearInterval(pollInterval);
+      clearTimeout(timeoutId);
+    };
+  }, [paymentStatus, bookingCreated?.id, router]);
+
+  // Temporary hook for simulated payment confirmation
+  const simulatePaymentMutation = useMutation({
+    mutationFn: () => api.post(`/api/bookings/${bookingCreated.id}/confirm-payment`, {
+      mpesaReceiptNo: `SIM-${Date.now()}`,
+      checkoutRequestId
+    }),
+    onSuccess: () => {
+      // Polling will catch it on next tick, but we can fast-track
+      setPaymentStatus("success");
+      toast.success("Payment successful!", { description: "Your booking is now visible to the landlord." });
+      setTimeout(() => {
+        router.push("/tenant/bookings");
+      }, 1500);
+    }
   });
 
   if (!user) {
@@ -110,7 +174,18 @@ export default function BookListingPage({ params }: { params: Promise<{ slug: st
   }
 
   function canProceed() {
-    if (step === 1) return !!selectedUnitTypeId;
+    if (step === 1) {
+      if (!selectedUnitTypeId) return false;
+      const target = unitTypes.find((ut: any) => ut.id === selectedUnitTypeId);
+      const vacant = target?.units?.filter((u: any) => u.status === "VACANT")?.length || 0;
+      if (target && (target.units || []).length > 0 && vacant === 0) {
+        toast.error("The selected unit category is fully occupied", {
+          description: "Please choose an available unit category or join the waiting list.",
+        });
+        return false;
+      }
+      return true;
+    }
     if (step === 2) return !!moveInDate;
     return true;
   }
@@ -135,43 +210,86 @@ export default function BookListingPage({ params }: { params: Promise<{ slug: st
       {/* M-Pesa modal */}
       {showMpesa && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-foreground/60 px-4">
-          <div className="w-full max-w-sm rounded-2xl bg-background p-6 shadow-xl">
-            <div className="flex items-center gap-3 mb-5">
-              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10">
-                <Phone className="h-5 w-5 text-primary" />
+          <div className="w-full max-w-sm rounded-2xl bg-background p-6 shadow-xl relative overflow-hidden">
+            {paymentStatus === "success" ? (
+              <div className="text-center py-6">
+                <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-emerald-100 mb-4">
+                  <CheckCircle2 className="h-8 w-8 text-emerald-600" />
+                </div>
+                <h3 className="text-xl font-bold text-foreground">Payment Received</h3>
+                <p className="mt-2 text-sm text-muted-foreground">Redirecting to your dashboard...</p>
               </div>
-              <div>
-                <p className="font-semibold">M-Pesa Booking Fee</p>
-                <p className="text-xs text-muted-foreground">Enter your Safaricom number</p>
+            ) : paymentStatus === "polling" ? (
+              <div className="text-center py-6">
+                <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-primary/10 mb-4 animate-pulse">
+                  <Loader2 className="h-8 w-8 text-primary animate-spin" />
+                </div>
+                <h3 className="text-xl font-bold text-foreground">Waiting for M-Pesa</h3>
+                <p className="mt-2 text-sm text-muted-foreground px-4">
+                  Please check your phone and enter your M-Pesa PIN to complete the transaction.
+                </p>
+                {/* Temporary simulation button */}
+                <Button variant="outline" size="sm" className="mt-6"
+                  onClick={() => simulatePaymentMutation.mutate()} loading={simulatePaymentMutation.isPending}>
+                  Simulate Payment Success (Dev Only)
+                </Button>
               </div>
-            </div>
+            ) : (
+              <>
+                <div className="flex items-center gap-3 mb-5">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10">
+                    <Phone className="h-5 w-5 text-primary" />
+                  </div>
+                  <div>
+                    <p className="font-semibold">M-Pesa Booking Fee</p>
+                    <p className="text-xs text-muted-foreground">Enter your Safaricom number</p>
+                  </div>
+                </div>
 
-            <div className="rounded-xl bg-primary/5 border border-primary/10 p-4 text-center mb-5">
-              <p className="text-xs text-muted-foreground uppercase tracking-wide">Amount to Pay</p>
-              <p className="text-4xl font-bold text-primary mt-1">1,000</p>
-              <p className="text-sm text-muted-foreground">KES</p>
-              <p className="mt-1 text-xs text-muted-foreground">Valid for up to 5 booking attempts — refundable if all fail</p>
-            </div>
+                <div className="rounded-xl bg-primary/5 border border-primary/10 p-4 text-center mb-5">
+                  <p className="text-xs text-muted-foreground uppercase tracking-wide">Amount to Pay</p>
+                  <p className="text-4xl font-bold text-primary mt-1">1,000</p>
+                  <p className="text-sm text-muted-foreground">KES</p>
+                  <p className="mt-1 text-xs text-muted-foreground">Valid for up to 5 booking attempts — refundable if all fail</p>
+                </div>
 
-            <div className="mb-4">
-              <Label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Phone Number</Label>
-              <div className="mt-1.5 flex">
-                <span className="flex items-center rounded-l-md border border-r-0 border-input bg-muted px-3 text-sm text-muted-foreground whitespace-nowrap">
-                  🇰🇪 +254
-                </span>
-                <Input value={phoneNumber} onChange={(e) => setPhoneNumber(e.target.value)}
-                  placeholder="7XX XXX XXX" className="rounded-l-none" />
-              </div>
-              <p className="mt-1 text-xs text-muted-foreground">A push notification will be sent to this number</p>
-            </div>
+                {paymentStatus === "timeout" && (
+                  <div className="mb-4 flex items-start gap-2 rounded-lg bg-red-50 p-3 text-red-600 text-xs">
+                    <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
+                    <p>The request timed out. Please verify your phone number and try again.</p>
+                  </div>
+                )}
 
-            <Button
-              className="w-full bg-primary text-primary-foreground hover:bg-primary/90 gap-2"
-              loading={payMutation.isPending}
-              disabled={!phoneNumber}
-              onClick={() => payMutation.mutate()}>
-              {payMutation.isPending ? "Processing..." : "Send STK Push"}
-            </Button>
+                <div className="mb-4">
+                  <Label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Phone Number</Label>
+                  <div className="mt-1.5 flex">
+                    <span className="flex items-center rounded-l-md border border-r-0 border-input bg-muted px-3 text-sm text-muted-foreground whitespace-nowrap">
+                      🇰🇪 +254
+                    </span>
+                    <Input value={phoneNumber} onChange={(e) => setPhoneNumber(e.target.value)}
+                      placeholder="7XX XXX XXX" className="rounded-l-none" />
+                  </div>
+                  <p className="mt-1 text-xs text-muted-foreground">A push notification will be sent to this number</p>
+                </div>
+
+                <div className="flex gap-2">
+                  <Button variant="outline" className="flex-1" onClick={() => {
+                    setShowMpesa(false);
+                    setStep(3);
+                    router.push("/tenant/bookings");
+                  }}>
+                    Cancel & Pay Later
+                  </Button>
+                  <Button
+                    className="flex-1 bg-primary text-primary-foreground hover:bg-primary/90 gap-2"
+                    loading={payMutation.isPending}
+                    disabled={!phoneNumber}
+                    onClick={() => payMutation.mutate(phoneNumber)}>
+                    {payMutation.isPending ? "Sending..." : "Send STK Push"}
+                  </Button>
+                </div>
+              </>
+            )}
           </div>
         </div>
       )}
@@ -201,7 +319,7 @@ export default function BookListingPage({ params }: { params: Promise<{ slug: st
                 }`}>
                   {step > s.num ? <CheckCircle2 className="h-5 w-5" /> : s.num}
                 </div>
-                <p className={`mt-1 text-xs font-medium ${step >= s.num ? "text-primary" : "text-muted-foreground"}`}>
+                <p className={`mt-1 text-xs font-medium text-center ${step >= s.num ? "text-primary" : "text-muted-foreground"}`}>
                   {s.label}
                 </p>
               </div>
@@ -210,7 +328,6 @@ export default function BookListingPage({ params }: { params: Promise<{ slug: st
               )}
             </div>
           ))}
-          <p className="ml-4 text-xs text-muted-foreground mb-5">{step} / {STEPS.length}</p>
         </div>
 
         {/* Property card */}
@@ -245,22 +362,63 @@ export default function BookListingPage({ params }: { params: Promise<{ slug: st
                   {unitTypes.map((ut: any) => {
                     const isSelected = selectedUnitTypeId === ut.id;
                     const vacantCount = ut.units?.filter((u: any) => u.status === "VACANT")?.length || 0;
+                    const isFullyOccupied = (ut.units || []).length > 0 && vacantCount === 0;
+
                     return (
-                      <button key={ut.id} onClick={() => setSelectedUnitTypeId(ut.id)}
-                        className={`w-full flex items-center justify-between rounded-xl border-2 p-4 text-left transition-colors ${
-                          isSelected ? "border-primary bg-primary/5 shadow-sm" : "border-border hover:border-primary/50"
+                      <div
+                        key={ut.id}
+                        onClick={() => {
+                          if (isFullyOccupied) {
+                            toast.error("This unit category is fully occupied", {
+                              description: "Booking is disabled for this category. Please join the waiting list.",
+                            });
+                            return;
+                          }
+                          setSelectedUnitTypeId(ut.id);
+                        }}
+                        className={`w-full rounded-xl border-2 p-4 transition-all ${
+                          isFullyOccupied
+                            ? "border-red-200 bg-red-50/20 opacity-80 cursor-not-allowed"
+                            : isSelected
+                            ? "border-primary bg-primary/5 shadow-sm cursor-pointer"
+                            : "border-border hover:border-primary/50 cursor-pointer"
                         }`}>
-                        <div>
-                          <p className="font-bold text-foreground text-base">{ut.label}</p>
-                          <p className="text-xs text-muted-foreground">
-                            {ut.bedroomCount === 0 ? "Studio" : `${ut.bedroomCount} Bedroom`} • {ut.bathrooms} Bath • <span className="text-primary font-medium">{vacantCount} vacant</span>
-                          </p>
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <p className="font-bold text-foreground text-base">{ut.label}</p>
+                              {isFullyOccupied && (
+                                <span className="rounded-full bg-red-100 border border-red-200 px-2.5 py-0.5 text-[10px] font-bold text-red-700 uppercase">
+                                  Fully Occupied
+                                </span>
+                              )}
+                            </div>
+                            <p className="text-xs text-muted-foreground mt-0.5">
+                              {ut.bedroomCount === 0 ? "Studio" : `${ut.bedroomCount} Bedroom`} • {ut.bathrooms} Bath •{" "}
+                              {isFullyOccupied ? (
+                                <span className="text-red-600 font-semibold">0 vacant (Occupied)</span>
+                              ) : (
+                                <span className="text-primary font-semibold">{vacantCount} vacant</span>
+                              )}
+                            </p>
+                          </div>
+                          <div className="text-right">
+                            <p className="font-extrabold text-secondary text-base">KSh {ut.monthlyRent.toLocaleString()}</p>
+                            <p className="text-[11px] text-muted-foreground">/month</p>
+                          </div>
                         </div>
-                        <div className="text-right">
-                          <p className="font-extrabold text-secondary text-base">KSh {ut.monthlyRent.toLocaleString()}</p>
-                          <p className="text-[11px] text-muted-foreground">/month</p>
-                        </div>
-                      </button>
+
+                        {isFullyOccupied && (
+                          <div className="mt-3 pt-2 border-t border-red-200/50 flex items-center justify-between gap-2">
+                            <span className="text-xs text-red-700 font-medium">⚠️ Direct booking inactive</span>
+                            <Link href={`/listings/${slug}`} onClick={(e) => e.stopPropagation()}>
+                              <Button size="sm" className="bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs h-8">
+                                Join Waiting List →
+                              </Button>
+                            </Link>
+                          </div>
+                        )}
+                      </div>
                     );
                   })}
                 </div>
@@ -329,8 +487,8 @@ export default function BookListingPage({ params }: { params: Promise<{ slug: st
             </>
           )}
 
-          {/* STEP 3 — Review & Confirm */}
-          {step === 3 && (
+          {/* STEP 3 & 4 — Review & Confirm */}
+          {step >= 3 && (
             <>
               <div>
                 <h2 className="text-xl font-bold">Review & Confirm</h2>
@@ -396,23 +554,25 @@ export default function BookListingPage({ params }: { params: Promise<{ slug: st
         {/* Navigation */}
         <div className="mt-6 flex items-center justify-between">
           {step > 1 ? (
-            <Button variant="outline" onClick={() => setStep(s => s - 1)}>← Back</Button>
+            <Button variant="outline" onClick={() => setStep(s => s - 1)} disabled={step === 4}>← Back</Button>
           ) : (
             <Link href={`/listings/${slug}`}>
               <Button variant="outline">← Back</Button>
             </Link>
           )}
 
-          <Button
-            onClick={handleNext}
-            loading={step === 3 && bookingMutation.isPending}
-            disabled={!canProceed()}
-            className="gap-2 bg-primary text-primary-foreground hover:bg-primary/90">
-            {step === 3
-              ? (bookingMutation.isPending ? "Processing..." : "Pay Booking Fee Now")
-              : (<>Next: {STEPS[step]?.label} <ChevronRight className="h-4 w-4" /></>)
-            }
-          </Button>
+          {step < 4 && (
+            <Button
+              onClick={handleNext}
+              loading={step === 3 && bookingMutation.isPending}
+              disabled={!canProceed()}
+              className="gap-2 bg-primary text-primary-foreground hover:bg-primary/90">
+              {step === 3
+                ? (bookingMutation.isPending ? "Processing..." : "Confirm & Pay Fee")
+                : (<>Next: {STEPS[step]?.label} <ChevronRight className="h-4 w-4" /></>)
+              }
+            </Button>
+          )}
         </div>
       </div>
     </div>

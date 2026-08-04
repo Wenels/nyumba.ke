@@ -1,5 +1,6 @@
 import { prisma } from "../lib/prisma.js";
 
+// ─── Create Booking (status: PAYMENT_PENDING until fee is paid) ───────────────
 export async function createBooking(req, res) {
   const { propertyId, listingId, unitTypeId, unitType, unitId, moveInDate, leaseDuration, viewingDate } = req.body;
 
@@ -29,6 +30,17 @@ export async function createBooking(req, res) {
     return res.status(400).json({ error: "Invalid unit type specified for this property" });
   }
 
+  // Check unit availability for resolvedUnitTypeId
+  const categoryUnits = await prisma.unit.findMany({
+    where: { unitTypeId: resolvedUnitTypeId },
+    select: { status: true },
+  });
+
+  if (categoryUnits.length > 0 && categoryUnits.every((u) => u.status === "OCCUPIED")) {
+    return res.status(400).json({ error: "All units under this category are currently occupied. Please join the waiting list." });
+  }
+
+  // Create with PAYMENT_PENDING — not visible on dashboards until feePaid: true
   const booking = await prisma.booking.create({
     data: {
       propertyId: targetPropertyId,
@@ -39,6 +51,8 @@ export async function createBooking(req, res) {
       moveInDate: new Date(moveInDate),
       leaseDuration: leaseDuration || 12,
       viewingDate: viewingDate ? new Date(viewingDate) : null,
+      status: "PAYMENT_PENDING",
+      feePaid: false,
     },
     include: {
       property: { select: { id: true, name: true, slug: true, address: true } },
@@ -48,7 +62,6 @@ export async function createBooking(req, res) {
     },
   });
 
-  // Attach backward compatible fields
   const formatted = {
     ...booking,
     listing: {
@@ -64,9 +77,136 @@ export async function createBooking(req, res) {
   res.status(201).json({ booking: formatted });
 }
 
+// ─── Initiate Booking Fee Payment (STK Push) ──────────────────────────────────
+export async function initiateBookingPayment(req, res) {
+  const { phone } = req.body;
+  const booking = await prisma.booking.findUnique({ where: { id: req.params.id } });
+
+  if (!booking) return res.status(404).json({ error: "Booking not found" });
+  if (booking.tenantId !== req.session.userId) return res.status(403).json({ error: "Forbidden" });
+  if (booking.feePaid) return res.status(400).json({ error: "Booking fee already paid" });
+  if (booking.status !== "PAYMENT_PENDING") {
+    return res.status(400).json({ error: "Booking is not in a payable state" });
+  }
+
+  // Create a Payment record for tracking
+  const checkoutRequestId = `SIM-${Date.now()}-${booking.id.slice(0, 8)}`;
+  await prisma.payment.create({
+    data: {
+      userId: req.session.userId,
+      amount: booking.bookingFee,
+      phoneNumber: phone || "unknown",
+      status: "PENDING",
+      checkoutRequestId,
+      purpose: `booking_fee:${booking.id}`,
+    },
+  });
+
+  res.json({
+    message: "STK Push sent. Check your phone for the M-Pesa prompt.",
+    bookingId: booking.id,
+    checkoutRequestId,
+    amount: booking.bookingFee,
+  });
+}
+
+// ─── Confirm Booking Fee Payment (M-Pesa callback / simulation) ───────────────
+export async function confirmBookingPayment(req, res) {
+  const { mpesaReceiptNo, checkoutRequestId } = req.body;
+  const booking = await prisma.booking.findUnique({ where: { id: req.params.id } });
+
+  if (!booking) return res.status(404).json({ error: "Booking not found" });
+  if (booking.tenantId !== req.session.userId && !req.session.isAdmin) {
+    return res.status(403).json({ error: "Forbidden" });
+  }
+  if (booking.feePaid) return res.status(400).json({ error: "Booking fee already paid" });
+
+  const receipt = mpesaReceiptNo || `SIM-RCPT-${Date.now()}`;
+
+  // Mark payment record as SUCCESS
+  if (checkoutRequestId) {
+    await prisma.payment.updateMany({
+      where: { checkoutRequestId },
+      data: { status: "SUCCESS", mpesaReceiptNo: receipt },
+    });
+  }
+
+  // Promote booking from PAYMENT_PENDING → PENDING (visible to both dashboards)
+  const updated = await prisma.booking.update({
+    where: { id: req.params.id },
+    data: {
+      feePaid: true,
+      mpesaReceiptNo: receipt,
+      status: "PENDING",
+    },
+    include: {
+      property: { select: { id: true, name: true, slug: true, address: true } },
+      unitType: { select: { id: true, label: true, monthlyRent: true } },
+      unit: { select: { id: true, unitNumber: true, floor: true } },
+      tenant: { select: { id: true, fullName: true, email: true, phone: true } },
+    },
+  });
+
+  const formatted = {
+    ...updated,
+    listing: {
+      id: updated.property.id,
+      title: updated.property.name,
+      slug: updated.property.slug,
+      address: updated.property.address,
+      price: updated.unitType.monthlyRent,
+    },
+    unitType: updated.unitType.label,
+  };
+
+  res.json({ booking: formatted, message: "Payment confirmed. Booking is now visible to landlord." });
+}
+
+// ─── Get Incomplete (unpaid) Bookings for Tenant ─────────────────────────────
+export async function getIncompleteBookings(req, res) {
+  const bookings = await prisma.booking.findMany({
+    where: {
+      tenantId: req.session.userId,
+      status: "PAYMENT_PENDING",
+    },
+    include: {
+      property: {
+        select: {
+          id: true,
+          name: true,
+          slug: true,
+          address: true,
+          photos: { take: 1, orderBy: { order: "asc" } },
+        },
+      },
+      unitType: { select: { id: true, label: true, monthlyRent: true } },
+    },
+    orderBy: { createdAt: "desc" },
+  });
+
+  const formatted = bookings.map((b) => ({
+    ...b,
+    listing: {
+      id: b.property.id,
+      title: b.property.name,
+      slug: b.property.slug,
+      address: b.property.address,
+      price: b.unitType.monthlyRent,
+      photos: b.property.photos,
+    },
+    unitType: b.unitType.label,
+  }));
+
+  res.json({ bookings: formatted });
+}
+
+// ─── Tenant Dashboard Bookings (excludes PAYMENT_PENDING) ─────────────────────
 export async function getTenantBookings(req, res) {
   const bookings = await prisma.booking.findMany({
-    where: { tenantId: req.session.userId },
+    where: {
+      tenantId: req.session.userId,
+      status: { not: "PAYMENT_PENDING" },
+    },
     include: {
       property: {
         select: {
@@ -100,13 +240,14 @@ export async function getTenantBookings(req, res) {
   res.json({ bookings: formatted });
 }
 
+// ─── Landlord Dashboard Bookings (excludes PAYMENT_PENDING) ───────────────────
 export async function getLandlordBookings(req, res) {
   const { status } = req.query;
 
   const bookings = await prisma.booking.findMany({
     where: {
       landlordId: req.session.userId,
-      ...(status && { status }),
+      status: status ? status : { not: "PAYMENT_PENDING" },
     },
     include: {
       property: { select: { id: true, name: true, slug: true, address: true } },
@@ -131,6 +272,7 @@ export async function getLandlordBookings(req, res) {
       address: b.property.address,
     },
     unitType: b.unitType.label,
+    unitTypeDetails: b.unitType,
   }));
 
   const stats = {
@@ -143,6 +285,7 @@ export async function getLandlordBookings(req, res) {
   res.json({ bookings: formatted, stats });
 }
 
+// ─── Get Single Booking ───────────────────────────────────────────────────────
 export async function getBooking(req, res) {
   const booking = await prisma.booking.findUnique({
     where: { id: req.params.id },
@@ -186,6 +329,7 @@ export async function getBooking(req, res) {
   res.json({ booking: formatted });
 }
 
+// ─── Update Booking Status (Landlord/Admin) ───────────────────────────────────
 export async function updateBookingStatus(req, res) {
   const { status, notes } = req.body;
   const booking = await prisma.booking.findUnique({
@@ -214,6 +358,7 @@ export async function updateBookingStatus(req, res) {
   res.json({ booking: updated });
 }
 
+// ─── Get Available Units for Booking ─────────────────────────────────────────
 export async function getAvailableUnitsForBooking(req, res) {
   const booking = await prisma.booking.findUnique({
     where: { id: req.params.id },
@@ -241,6 +386,7 @@ export async function getAvailableUnitsForBooking(req, res) {
   res.json({ units, unitType: booking.unitType });
 }
 
+// ─── Complete Viewing ─────────────────────────────────────────────────────────
 export async function completeViewing(req, res) {
   const booking = await prisma.booking.findUnique({ where: { id: req.params.id } });
   if (!booking) return res.status(404).json({ error: "Booking not found" });
@@ -266,6 +412,7 @@ export async function completeViewing(req, res) {
   res.json({ booking: updated, message: "Physical viewing marked as completed." });
 }
 
+// ─── Select Unit ──────────────────────────────────────────────────────────────
 export async function selectUnit(req, res) {
   const { unitId } = req.body;
   const booking = await prisma.booking.findUnique({
@@ -308,6 +455,7 @@ export async function selectUnit(req, res) {
   res.json({ booking: updated, message: "Unit selected! Landlord will prepare the contract." });
 }
 
+// ─── Cancel Booking ───────────────────────────────────────────────────────────
 export async function cancelBooking(req, res) {
   const booking = await prisma.booking.findUnique({ where: { id: req.params.id } });
   if (!booking) return res.status(404).json({ error: "Booking not found" });

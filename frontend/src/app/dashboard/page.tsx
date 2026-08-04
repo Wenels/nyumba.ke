@@ -79,6 +79,16 @@ export default function DashboardPage() {
   const isVerified = user?.verification === "VERIFIED";
   const isPending = user?.verification === "PENDING";
 
+  // Compute dynamic occupancy stats
+  const totalUnits = listings.reduce((sum, l) => sum + (l.totalUnits || 0), 0);
+  const totalVacant = listings.reduce((sum, l) => sum + (l.vacantCount || 0), 0);
+  const occupiedUnits = totalUnits - totalVacant;
+  const occupancyRate = totalUnits > 0 ? Math.round((occupiedUnits / totalUnits) * 100) : 0;
+
+  // Active tenants = unique tenants with approved/completed bookings
+  const uniqueTenantIds = new Set(bookings.filter((b) => b.status === "APPROVED" || b.status === "COMPLETED").map((b: any) => b.tenantId).filter(Boolean));
+  const activeTenantCount = uniqueTenantIds.size;
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -154,10 +164,10 @@ export default function DashboardPage() {
             </div>
           </div>
           <p className="mt-3 text-3xl font-bold">
-            {bookings.filter((b) => b.status === "APPROVED" || b.status === "COMPLETED").length}
+            {activeTenantCount}
           </p>
           <p className="mt-1 text-xs text-muted-foreground">
-            0% Occupancy rate
+            {occupancyRate}% Occupancy rate
           </p>
         </div>
 
@@ -280,13 +290,13 @@ export default function DashboardPage() {
                 <p className="text-xs text-primary-foreground/70">Overall performance</p>
               </div>
             </div>
-            <p className="text-5xl font-bold">0%</p>
+            <p className="text-5xl font-bold">{occupancyRate}%</p>
             <div className="mt-3 h-1.5 rounded-full bg-primary-foreground/20">
-              <div className="h-full rounded-full bg-primary-foreground" style={{ width: "0%" }} />
+              <div className="h-full rounded-full bg-primary-foreground" style={{ width: `${occupancyRate}%` }} />
             </div>
             <div className="mt-3 flex justify-between text-xs text-primary-foreground/70">
-              <span>Occupied: 0</span>
-              <span>Total Units: {listings.length}</span>
+              <span>Occupied: {occupiedUnits}</span>
+              <span>Total Units: {totalUnits}</span>
             </div>
           </div>
 

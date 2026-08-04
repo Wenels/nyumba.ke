@@ -6,4 +6,6 @@ export {
   deleteProperty as deleteListing,
   getMyProperties as getMyListings,
   reportProperty as reportListing,
+  joinWaitlist,
+  getLandlordWaitlist,
 } from "./propertiesController.js";

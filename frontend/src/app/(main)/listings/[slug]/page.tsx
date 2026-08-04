@@ -9,7 +9,7 @@ import {
   ArrowLeft, MapPin, BedDouble, Bath, ShieldCheck, Heart,
   Phone, MessageSquare, Flag, Calendar, ChevronLeft, ChevronRight,
   CheckCircle2, XCircle, Home, Users, DollarSign, ImageOff,
-  Building2, Sparkles, Key, Check
+  Building2, Sparkles, Key, Check, Clock
 } from "lucide-react";
 import Image from "next/image";
 import { api } from "@/lib/api";
@@ -144,12 +144,92 @@ function ReportModal({ listingId, onClose }: { listingId: string; onClose: () =>
   );
 }
 
+// Waitlist modal
+function WaitlistModal({ propertyId, propertyName, categoryLabel, onClose }: { propertyId: string; propertyName: string; categoryLabel: string; onClose: () => void }) {
+  const { user } = useAuth();
+  const [preferredDate, setPreferredDate] = useState("");
+  const [notes, setNotes] = useState("");
+  const mutation = useMutation({
+    mutationFn: () => api.post(`/api/listings/${propertyId}/waitlist`, { categoryLabel, preferredDate, notes }),
+    onSuccess: () => {
+      toast.success("Joined Waiting List!", {
+        description: `You will be notified as soon as a ${categoryLabel} unit becomes available at ${propertyName}.`,
+      });
+      onClose();
+    },
+    onError: () => toast.error("Failed to join waiting list"),
+  });
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-foreground/50 px-4">
+      <div className="w-full max-w-md rounded-2xl bg-background p-6 shadow-xl space-y-4">
+        <div className="flex items-center justify-between border-b border-border pb-3">
+          <div>
+            <h3 className="font-bold text-lg text-foreground">Join Waiting List</h3>
+            <p className="text-xs text-muted-foreground mt-0.5">{propertyName} • <strong>{categoryLabel}</strong></p>
+          </div>
+          <button onClick={onClose} className="text-muted-foreground hover:text-foreground text-sm font-semibold">✕</button>
+        </div>
+
+        <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-3.5 flex items-start gap-3">
+          <span className="text-xl shrink-0">🔔</span>
+          <div className="text-xs text-emerald-800">
+            <p className="font-semibold text-emerald-900 mb-0.5">Category Currently Fully Occupied</p>
+            Join the waitlist to receive an alert as soon as a unit becomes available.
+          </div>
+        </div>
+
+        <div className="space-y-3 text-sm">
+          <div>
+            <label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Your Contact</label>
+            <p className="font-medium mt-1 text-foreground">{user?.fullName} ({user?.email})</p>
+          </div>
+          <div>
+            <label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Target Move-in Date (Optional)</label>
+            <input type="date" value={preferredDate} onChange={(e) => setPreferredDate(e.target.value)}
+              min={new Date().toISOString().split("T")[0]}
+              className="mt-1.5 w-full rounded-md border border-input bg-background px-3 py-2 text-sm" />
+          </div>
+          <div>
+            <label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Additional Preferences (Optional)</label>
+            <textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={2}
+              placeholder="E.g., preferred floor, balcony, etc..."
+              className="mt-1.5 w-full rounded-md border border-input bg-background px-3 py-2 text-sm resize-none" />
+          </div>
+        </div>
+
+        <div className="pt-2 flex gap-3">
+          <Button variant="outline" className="flex-1" onClick={onClose}>Cancel</Button>
+          <Button className="flex-1 bg-emerald-700 text-white hover:bg-emerald-800 font-semibold"
+            loading={mutation.isPending} onClick={() => mutation.mutate()}>
+            Confirm Waitlist Entry →
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function ListingDetailPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = use(params);
   const router = useRouter();
   const { user } = useAuth();
   const [activeTab, setActiveTab] = useState("Overview");
   const [showReport, setShowReport] = useState(false);
+  const [waitlistCategory, setWaitlistCategory] = useState<string | null>(null);
+
+  function handleJoinWaitlist(categoryName: string) {
+    if (!user) {
+      toast.error("Please sign in to join the waiting list", {
+        action: {
+          label: "Sign In",
+          onClick: () => router.push("/login"),
+        },
+      });
+      return;
+    }
+    setWaitlistCategory(categoryName);
+  }
 
   const { data, isLoading, isError } = useQuery({
     queryKey: ["listings", slug],
@@ -204,6 +284,14 @@ export default function ListingDetailPage({ params }: { params: Promise<{ slug: 
   return (
     <div className="min-h-screen bg-background">
       {showReport && <ReportModal listingId={property.id} onClose={() => setShowReport(false)} />}
+      {waitlistCategory && (
+        <WaitlistModal
+          propertyId={property.id}
+          propertyName={property.name || property.title}
+          categoryLabel={waitlistCategory}
+          onClose={() => setWaitlistCategory(null)}
+        />
+      )}
 
       <div className="mx-auto max-w-6xl px-4 py-6">
         {/* Back + actions */}
@@ -372,18 +460,26 @@ export default function ListingDetailPage({ params }: { params: Promise<{ slug: 
                   <div className="space-y-6">
                     {unitTypes.map((ut: any) => {
                       const vacantUnits = ut.units?.filter((u: any) => u.status === "VACANT") || [];
+                      const isFullyOccupied = (ut.units || []).length > 0 && vacantUnits.length === 0;
 
                       return (
-                        <div key={ut.id} className="rounded-xl border border-border bg-card overflow-hidden shadow-sm hover:shadow-md transition-shadow">
+                        <div key={ut.id} className={`rounded-xl border bg-card overflow-hidden shadow-sm transition-all ${
+                          isFullyOccupied ? "border-amber-200/80 bg-amber-50/10" : "border-border hover:shadow-md"
+                        }`}>
                           {/* UnitType Header */}
                           <div className="p-5 border-b border-border bg-muted/20">
                             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                               <div>
-                                <div className="flex items-center gap-2">
+                                <div className="flex items-center gap-2 flex-wrap">
                                   <h4 className="font-bold text-xl text-foreground">{ut.label}</h4>
                                   <span className="rounded-full bg-secondary/15 px-2.5 py-0.5 text-xs font-semibold text-secondary">
                                     {ut.bedroomCount === 0 ? "Studio" : `${ut.bedroomCount} Bed`} • {ut.bathrooms} Bath
                                   </span>
+                                  {isFullyOccupied && (
+                                    <span className="rounded-full bg-red-100 border border-red-200 px-2.5 py-0.5 text-xs font-bold text-red-700 uppercase tracking-wide">
+                                      Fully Occupied
+                                    </span>
+                                  )}
                                 </div>
                                 {ut.description && (
                                   <p className="text-xs text-muted-foreground mt-1">{ut.description}</p>
@@ -410,7 +506,9 @@ export default function ListingDetailPage({ params }: { params: Promise<{ slug: 
                                 <Key className="h-3.5 w-3.5 text-primary" /> Vacant Rooms in this category ({vacantUnits.length}):
                               </p>
                               {vacantUnits.length === 0 ? (
-                                <p className="text-xs text-destructive italic">Currently all units in this category are occupied or reserved.</p>
+                                <div className="rounded-xl border border-red-200 bg-red-50/50 p-3.5 text-xs text-red-800 font-medium">
+                                  ⚠️ Currently all units in this category are occupied or reserved. Booking is disabled — join the waiting list to get notified when a unit opens up.
+                                </div>
                               ) : (
                                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
                                   {vacantUnits.map((unit: any) => (
@@ -427,23 +525,47 @@ export default function ListingDetailPage({ params }: { params: Promise<{ slug: 
                             </div>
 
                             {/* Book CTA */}
-                            <div className="pt-2 flex items-center justify-between gap-4 border-t border-border">
-                              <span className="text-xs text-muted-foreground">
-                                {vacantUnits.length > 0 ? `${vacantUnits.length} vacant room${vacantUnits.length > 1 ? "s" : ""} ready for move-in` : "Join waiting list"}
+                            <div className="pt-3 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 border-t border-border">
+                              <span className="text-xs font-medium text-muted-foreground">
+                                {!isFullyOccupied
+                                  ? `${vacantUnits.length} vacant room${vacantUnits.length > 1 ? "s" : ""} ready for move-in`
+                                  : "No vacancies currently — join waiting list to be notified"}
                               </span>
-                              {user ? (
-                                <Link href={`/listings/${property.slug}/book?unitTypeId=${ut.id}`}>
-                                  <Button size="sm" className="bg-primary text-primary-foreground hover:bg-primary/90 font-semibold px-5">
-                                    Book {ut.label}
+
+                              <div className="flex items-center gap-2.5 w-full sm:w-auto">
+                                {/* Booking button — inactive when fully occupied */}
+                                {isFullyOccupied ? (
+                                  <Button size="sm" disabled variant="outline" className="opacity-50 cursor-not-allowed bg-muted text-muted-foreground font-semibold px-4 w-full sm:w-auto">
+                                    Book {ut.label} (Unavailable)
                                   </Button>
-                                </Link>
-                              ) : (
-                                <Link href="/login">
-                                  <Button size="sm" className="bg-primary text-primary-foreground hover:bg-primary/90 font-semibold px-5">
-                                    Sign in to Book
-                                  </Button>
-                                </Link>
-                              )}
+                                ) : user ? (
+                                  <Link href={`/listings/${property.slug}/book?unitTypeId=${ut.id}`}>
+                                    <Button size="sm" className="bg-primary text-primary-foreground hover:bg-primary/90 font-semibold px-5 w-full sm:w-auto">
+                                      Book {ut.label}
+                                    </Button>
+                                  </Link>
+                                ) : (
+                                  <Link href="/login">
+                                    <Button size="sm" className="bg-primary text-primary-foreground hover:bg-primary/90 font-semibold px-5 w-full sm:w-auto">
+                                      Sign in to Book
+                                    </Button>
+                                  </Link>
+                                )}
+
+                                {/* Join Waiting List button — active primary button when fully occupied */}
+                                <Button
+                                  size="sm"
+                                  onClick={() => handleJoinWaitlist(ut.label)}
+                                  className={
+                                    isFullyOccupied
+                                      ? "bg-emerald-700 hover:bg-emerald-800 text-white font-bold px-5 shadow-sm w-full sm:w-auto gap-1.5"
+                                      : "variant-outline text-xs border-border text-muted-foreground hover:text-foreground gap-1.5"
+                                  }
+                                >
+                                  <Clock className="h-3.5 w-3.5" />
+                                  Join Waiting List
+                                </Button>
+                              </div>
                             </div>
                           </div>
                         </div>
@@ -613,20 +735,28 @@ export default function ListingDetailPage({ params }: { params: Promise<{ slug: 
 
           {/* Right sidebar — Landlord card */}
           <div className="space-y-4">
-            {/* Book Now CTA */}
-            {user && (
-              <Link href={`/listings/${property.slug}/book`}>
-                <Button className="w-full bg-primary text-primary-foreground hover:bg-primary/90 h-12 text-base font-semibold">
-                  Book Unit Spot
-                </Button>
-              </Link>
-            )}
-            {!user && (
-              <Link href="/login">
-                <Button className="w-full bg-primary text-primary-foreground hover:bg-primary/90 h-12 text-base font-semibold">
-                  Sign in to Book
-                </Button>
-              </Link>
+            {/* Book Now / Waitlist CTA */}
+            {totalVacantCount > 0 ? (
+              user ? (
+                <Link href={`/listings/${property.slug}/book`}>
+                  <Button className="w-full bg-primary text-primary-foreground hover:bg-primary/90 h-12 text-base font-semibold">
+                    Book Unit Spot
+                  </Button>
+                </Link>
+              ) : (
+                <Link href="/login">
+                  <Button className="w-full bg-primary text-primary-foreground hover:bg-primary/90 h-12 text-base font-semibold">
+                    Sign in to Book
+                  </Button>
+                </Link>
+              )
+            ) : (
+              <Button
+                onClick={() => handleJoinWaitlist("All Categories")}
+                className="w-full bg-emerald-700 text-white hover:bg-emerald-800 h-12 text-base font-bold gap-2 shadow-sm"
+              >
+                <Clock className="h-5 w-5" /> Join Waiting List
+              </Button>
             )}
 
             {/* Landlord card */}

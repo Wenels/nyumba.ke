@@ -59,21 +59,60 @@ export async function getLandlordRentPayments(req, res) {
   res.json({ payments, stats });
 }
 
-export async function payRent(req, res) {
-  const { mpesaReceiptNo } = req.body;
+export async function initiateRentPayment(req, res) {
+  const { phone } = req.body;
   const payment = await prisma.rentPayment.findUnique({ where: { id: req.params.id } });
 
   if (!payment) return res.status(404).json({ error: "Payment not found" });
   if (payment.tenantId !== req.session.userId) return res.status(403).json({ error: "Forbidden" });
+  if (payment.status === "PAID") return res.status(400).json({ error: "Already paid" });
+
+  const checkoutRequestId = `SIM-${Date.now()}-${payment.id.slice(0, 8)}`;
+  
+  await prisma.payment.create({
+    data: {
+      userId: req.session.userId,
+      amount: payment.amount,
+      phoneNumber: phone || "unknown",
+      status: "PENDING",
+      checkoutRequestId,
+      purpose: `monthly_rent:${payment.id}`,
+    },
+  });
+
+  res.json({
+    message: "STK Push sent. Check your phone for the M-Pesa prompt.",
+    paymentId: payment.id,
+    checkoutRequestId,
+    amount: payment.amount,
+  });
+}
+
+export async function confirmRentPayment(req, res) {
+  const { mpesaReceiptNo, checkoutRequestId } = req.body;
+  const payment = await prisma.rentPayment.findUnique({ where: { id: req.params.id } });
+
+  if (!payment) return res.status(404).json({ error: "Payment not found" });
+  if (payment.tenantId !== req.session.userId && !req.session.isAdmin) return res.status(403).json({ error: "Forbidden" });
+  if (payment.status === "PAID") return res.status(400).json({ error: "Already paid" });
+
+  const receipt = mpesaReceiptNo || `SIM-RCPT-${Date.now()}`;
+
+  if (checkoutRequestId) {
+    await prisma.payment.updateMany({
+      where: { checkoutRequestId },
+      data: { status: "SUCCESS", mpesaReceiptNo: receipt },
+    });
+  }
 
   const updated = await prisma.rentPayment.update({
     where: { id: req.params.id },
     data: {
       status: "PAID",
       paidDate: new Date(),
-      mpesaReceiptNo,
+      mpesaReceiptNo: receipt,
     },
   });
 
-  res.json({ payment: updated });
+  res.json({ payment: updated, message: "Payment confirmed successfully" });
 }

@@ -426,3 +426,47 @@ export async function reportProperty(req, res) {
 
   res.status(201).json({ report });
 }
+
+export async function joinWaitlist(req, res) {
+  const { categoryLabel, unitTypeId } = req.body;
+  const property = await prisma.property.findUnique({
+    where: { id: req.params.id },
+  });
+
+  if (!property) return res.status(404).json({ error: "Property not found" });
+
+  await prisma.waitingList.create({
+    data: {
+      propertyId: property.id,
+      tenantId: req.session.userId,
+      unitTypeId: unitTypeId || null,
+      status: "WAITING",
+    },
+  });
+
+  res.status(200).json({
+    ok: true,
+    message: `Successfully joined waiting list for ${categoryLabel || "this property"}.`,
+  });
+}
+
+export async function getLandlordWaitlist(req, res) {
+  const properties = await prisma.property.findMany({
+    where: { landlordId: req.session.userId },
+    select: { id: true },
+  });
+  
+  const propertyIds = properties.map(p => p.id);
+
+  const waitlist = await prisma.waitingList.findMany({
+    where: { propertyId: { in: propertyIds } },
+    include: {
+      property: { select: { id: true, name: true } },
+      tenant: { select: { id: true, fullName: true, email: true, phone: true } },
+      unitType: { select: { id: true, label: true } },
+    },
+    orderBy: { createdAt: "desc" },
+  });
+
+  res.json({ waitlist });
+}

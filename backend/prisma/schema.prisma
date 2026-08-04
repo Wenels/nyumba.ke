@@ -37,6 +37,7 @@ enum PaymentStatus {
 }
 
 enum BookingStatus {
+  PAYMENT_PENDING
   PENDING
   NEED_REVIEW
   VIEWING_SCHEDULED
@@ -124,6 +125,7 @@ model User {
   landlordRentPayments  RentPayment[]      @relation("LandlordRentPayments")
   tenantIssues          Issue[]            @relation("TenantIssues")
   landlordIssues        Issue[]            @relation("LandlordIssues")
+  waitingListEntries    WaitingList[]
 }
 
 model Property {
@@ -168,6 +170,7 @@ model Property {
   bookings        Booking[]
   contracts       Contract[]
   issues          Issue[]
+  waitingList     WaitingList[]
 }
 
 model UnitType {
@@ -189,6 +192,7 @@ model UnitType {
   units           Unit[]
   bookings        Booking[]
   contracts       Contract[]
+  waitingList     WaitingList[]
 }
 
 model Unit {
@@ -499,4 +503,20 @@ model IssuePhoto {
   createdAt DateTime @default(now())
 
   issue     Issue    @relation(fields: [issueId], references: [id], onDelete: Cascade)
+}
+
+model WaitingList {
+  id          String    @id @default(uuid())
+  propertyId  String
+  tenantId    String
+  unitTypeId  String?
+  status      String    @default("WAITING")
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  property    Property  @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  tenant      User      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  unitType    UnitType? @relation(fields: [unitTypeId], references: [id], onDelete: SetNull)
+
+  @@unique([propertyId, tenantId])
 }

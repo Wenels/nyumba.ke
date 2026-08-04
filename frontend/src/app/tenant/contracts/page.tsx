@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { format } from "date-fns";
@@ -16,6 +16,7 @@ export default function TenantContractsPage() {
   const [reviewingContract, setReviewingContract] = useState<any>(null);
   const [payingContract, setPayingContract] = useState<any>(null);
   const [phone, setPhone] = useState("");
+  const [paymentStatus, setPaymentStatus] = useState<"idle" | "polling" | "success" | "timeout">("idle");
 
   const queryClient = useQueryClient();
 
@@ -40,19 +41,67 @@ export default function TenantContractsPage() {
     mutationFn: ({ contractId, phone }: { contractId: string; phone: string }) =>
       api.post(`/api/contracts/${contractId}/pay-initial`, { phone }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["tenant-contracts"] });
-      toast.success("Initial payment completed!", { description: "Your tenancy contract is active and your unit is now officially occupied." });
-      setPayingContract(null);
+      setPaymentStatus("polling");
+      toast.success("STK Push sent!", { description: "Please check your phone for the M-Pesa prompt." });
     },
     onError: (err) => {
-      toast.error("Payment failed", { description: err instanceof ApiError ? (err.body as any)?.error : "Error" });
+      toast.error("Payment initiation failed", { description: err instanceof ApiError ? (err.body as any)?.error : "Error" });
+      setPaymentStatus("idle");
     },
   });
+
+  const simulatePaymentMutation = useMutation({
+    mutationFn: () => api.post(`/api/contracts/${payingContract.id}/confirm-payment`, {}),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["tenant-contracts"] });
+      setPaymentStatus("success");
+      toast.success("Initial payment completed!", { description: "Your tenancy contract is active and your unit is now officially occupied." });
+      setTimeout(() => {
+        setPayingContract(null);
+        setPaymentStatus("idle");
+      }, 3000);
+    },
+  });
+
+  useEffect(() => {
+    if (paymentStatus !== "polling" || !payingContract?.id) return;
+
+    const pollInterval = setInterval(async () => {
+      try {
+        const res = await api.get(`/api/contracts/${payingContract.id}`) as { contract: any };
+        if (res.contract?.status === "ACTIVE") {
+          setPaymentStatus("success");
+          clearInterval(pollInterval);
+          toast.success("Initial payment completed!", { description: "Your tenancy contract is active and your unit is now officially occupied." });
+          queryClient.invalidateQueries({ queryKey: ["tenant-contracts"] });
+          setTimeout(() => {
+            setPayingContract(null);
+            setPaymentStatus("idle");
+          }, 3000);
+        }
+      } catch (err) {
+        console.error("Polling error", err);
+      }
+    }, 3000);
+
+    const timeout = setTimeout(() => {
+      if (paymentStatus === "polling") {
+        setPaymentStatus("timeout");
+        toast.error("Payment timed out");
+        clearInterval(pollInterval);
+      }
+    }, 60000);
+
+    return () => {
+      clearInterval(pollInterval);
+      clearTimeout(timeout);
+    };
+  }, [paymentStatus, payingContract?.id, queryClient]);
 
   const contracts = data?.contracts ?? [];
   const stats = data?.stats ?? { total: 0, active: 0, pending: 0, locked: 0 };
 
-  const filtered = contracts.filter((c) => {
+  const filtered = contracts.filter((c: any) => {
     const matchStatus = !statusFilter || c.status === statusFilter;
     const matchSearch = !search || c.listing?.title?.toLowerCase().includes(search.toLowerCase());
     return matchStatus && matchSearch;
@@ -148,22 +197,53 @@ export default function TenantContractsPage() {
               <p className="text-xs text-muted-foreground mt-1">Rent (KSh {payingContract.monthlyRent.toLocaleString()}) + Deposit (KSh {payingContract.securityDeposit.toLocaleString()})</p>
             </div>
 
-            <div>
-              <Label className="text-xs font-semibold uppercase text-muted-foreground">M-Pesa Phone Number</Label>
-              <div className="mt-1 flex">
-                <span className="flex items-center rounded-l-md border border-r-0 border-input bg-muted px-3 text-sm text-muted-foreground whitespace-nowrap">
-                  🇰🇪 +254
-                </span>
-                <Input value={phone} onChange={(e) => setPhone(e.target.value)}
-                  placeholder="7XX XXX XXX" className="rounded-l-none" />
+            {paymentStatus === "success" ? (
+              <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-6 text-center">
+                <CheckCircle2 className="mx-auto h-12 w-12 text-emerald-600 mb-3" />
+                <h3 className="text-xl font-bold text-foreground">Payment Received</h3>
+                <p className="text-sm text-muted-foreground mt-1">Your tenancy contract is active!</p>
               </div>
-            </div>
+            ) : paymentStatus === "polling" ? (
+              <div className="rounded-xl border border-border p-6 text-center space-y-4">
+                <div className="mx-auto h-12 w-12 animate-spin rounded-full border-4 border-muted border-t-primary" />
+                <div>
+                  <h3 className="font-bold text-lg">Waiting for M-Pesa</h3>
+                  <p className="text-sm text-muted-foreground mt-1">Please enter your PIN on your phone to complete the payment.</p>
+                </div>
+                <Button variant="outline" className="w-full mt-4 border-dashed"
+                  onClick={() => simulatePaymentMutation.mutate()} loading={simulatePaymentMutation.isPending}>
+                  Simulate Payment Success (Dev Only)
+                </Button>
+              </div>
+            ) : (
+              <>
+                <div>
+                  <Label className="text-xs font-semibold uppercase text-muted-foreground">M-Pesa Phone Number</Label>
+                  <div className="mt-1 flex">
+                    <span className="flex items-center rounded-l-md border border-r-0 border-input bg-muted px-3 text-sm text-muted-foreground whitespace-nowrap">
+                      🇰🇪 +254
+                    </span>
+                    <Input value={phone} onChange={(e) => setPhone(e.target.value)}
+                      placeholder="7XX XXX XXX" className="rounded-l-none" />
+                  </div>
+                </div>
 
-            <Button className="w-full bg-primary text-primary-foreground hover:bg-primary/90 font-semibold"
-              loading={payMutation.isPending}
-              onClick={() => payMutation.mutate({ contractId: payingContract.id, phone })}>
-              Complete Payment & Activate Lease
-            </Button>
+                {paymentStatus === "timeout" && (
+                  <div className="rounded-lg bg-red-50 p-3 text-sm text-red-600">
+                    Payment request timed out. Please try again.
+                  </div>
+                )}
+
+                <div className="flex gap-3">
+                  <Button variant="outline" className="flex-1" onClick={() => { setPayingContract(null); setPaymentStatus("idle"); }}>Cancel</Button>
+                  <Button className="flex-1 bg-primary text-primary-foreground hover:bg-primary/90 font-semibold"
+                    loading={payMutation.isPending} disabled={!phone}
+                    onClick={() => payMutation.mutate({ contractId: payingContract.id, phone })}>
+                    {payMutation.isPending ? "Sending..." : "Send STK Push"}
+                  </Button>
+                </div>
+              </>
+            )}
           </div>
         </div>
       )}
