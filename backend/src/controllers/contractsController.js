@@ -209,8 +209,42 @@ export async function signContract(req, res) {
   res.json({ contract: updated });
 }
 
-export async function payInitialContract(req, res) {
-  const { mpesaReceiptNo } = req.body;
+export async function initiateInitialRentPayment(req, res) {
+  const { phone } = req.body;
+  const contract = await prisma.contract.findUnique({
+    where: { id: req.params.id },
+    include: { booking: true },
+  });
+
+  if (!contract) return res.status(404).json({ error: "Contract not found" });
+  if (contract.tenantId !== req.session.userId) return res.status(403).json({ error: "Forbidden" });
+  if (contract.status !== "AWAITING_PAYMENT") {
+    return res.status(400).json({ error: "Contract is not in a payable state" });
+  }
+
+  // Create a Payment record for tracking
+  const checkoutRequestId = `SIM-${Date.now()}-${contract.id.slice(0, 8)}`;
+  await prisma.payment.create({
+    data: {
+      userId: req.session.userId,
+      amount: contract.monthlyRent + contract.securityDeposit,
+      phoneNumber: phone || "unknown",
+      status: "PENDING",
+      checkoutRequestId,
+      purpose: `initial_rent:${contract.id}`,
+    },
+  });
+
+  res.json({
+    message: "STK Push sent. Check your phone for the M-Pesa prompt.",
+    contractId: contract.id,
+    checkoutRequestId,
+    amount: contract.monthlyRent + contract.securityDeposit,
+  });
+}
+
+export async function confirmInitialRentPayment(req, res) {
+  const { mpesaReceiptNo, checkoutRequestId } = req.body;
   const contract = await prisma.contract.findUnique({
     where: { id: req.params.id },
     include: { booking: true },
@@ -219,6 +253,17 @@ export async function payInitialContract(req, res) {
   if (!contract) return res.status(404).json({ error: "Contract not found" });
   if (contract.tenantId !== req.session.userId && contract.landlordId !== req.session.userId && !req.session.isAdmin) {
     return res.status(403).json({ error: "Forbidden" });
+  }
+  if (contract.status === "ACTIVE") return res.status(400).json({ error: "Contract is already active" });
+
+  const receipt = mpesaReceiptNo || `SIM-RCPT-${Date.now()}`;
+
+  // Mark payment record as SUCCESS
+  if (checkoutRequestId) {
+    await prisma.payment.updateMany({
+      where: { checkoutRequestId },
+      data: { status: "SUCCESS", mpesaReceiptNo: receipt },
+    });
   }
 
   // Activate contract
@@ -262,7 +307,7 @@ export async function payInitialContract(req, res) {
         dueDate,
         cycleNumber: i + 1,
         status: i === 0 ? "PAID" : "UPCOMING",
-        mpesaReceiptNo: i === 0 ? (mpesaReceiptNo || "ONLINE_PAYMENT") : null,
+        mpesaReceiptNo: i === 0 ? receipt : null,
         paidDate: i === 0 ? new Date() : null,
       });
     }

@@ -16,6 +16,7 @@ import contractsRoutes from "./routes/contracts.js";
 import rentPaymentsRoutes from "./routes/rentPayments.js";
 import issuesRoutes from "./routes/issues.js";
 import amenitiesRoutes from "./routes/amenities.js";
+import { prisma } from "./lib/prisma.js";
 const app = express();
 const PgSession = connectPgSimple(session);
 
@@ -72,3 +73,19 @@ const PORT = process.env.PORT || 4000;
 app.listen(PORT, () => {
   console.log(`Nyumba.ke API running on http://localhost:${PORT}`);
 });
+
+// Background job: cancel PAYMENT_PENDING bookings older than 30 minutes
+setInterval(async () => {
+  try {
+    const cutoff = new Date(Date.now() - 30 * 60 * 1000); // 30 mins ago
+    const result = await prisma.booking.updateMany({
+      where: { status: "PAYMENT_PENDING", createdAt: { lt: cutoff } },
+      data: { status: "CANCELLED" }
+    });
+    if (result.count > 0) {
+      console.log(`[Job] Cancelled ${result.count} expired PAYMENT_PENDING bookings.`);
+    }
+  } catch (err) {
+    console.error("[Job] Error cleaning up bookings:", err);
+  }
+}, 5 * 60 * 1000); // Runs every 5 minutes

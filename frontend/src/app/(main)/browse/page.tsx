@@ -360,7 +360,7 @@ function ListCard({ listing }: { listing: Listing }) {
           </div>
           <div className="flex items-center gap-1.5 shrink-0">
             <span className="h-2 w-2 rounded-full bg-primary" />
-            <span className="text-xs font-medium text-primary">4 Vacant</span>
+            <span className="text-xs font-medium text-primary">{listing.vacantCount} Vacant</span>
           </div>
         </div>
         <p className="mt-1 text-base font-bold text-secondary">
@@ -402,7 +402,7 @@ function GridCard({ listing }: { listing: Listing }) {
           </div>
         )}
         <span className="absolute top-2 right-2 flex items-center gap-0.5 rounded-full bg-primary/90 px-2 py-0.5 text-xs font-medium text-primary-foreground">
-          <span className="h-1.5 w-1.5 rounded-full bg-white" /> 4 Vacant
+          <span className="h-1.5 w-1.5 rounded-full bg-white" /> {listing.vacantCount} Vacant
         </span>
         {listing.landlord?.verification === "VERIFIED" && (
           <span className="absolute top-2 left-2 flex items-center gap-1 rounded-full bg-primary px-2 py-0.5 text-xs font-medium text-primary-foreground">

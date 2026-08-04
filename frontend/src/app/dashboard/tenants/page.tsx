@@ -19,18 +19,29 @@ export default function TenantsPage() {
   const bookings = data?.bookings ?? [];
   const approvedBookings = bookings.filter((b) => ["APPROVED", "COMPLETED"].includes(b.status));
 
-  const filtered = approvedBookings.filter((b) =>
+  const filteredBookings = approvedBookings.filter((b) =>
     !search ||
     b.tenant?.fullName?.toLowerCase().includes(search.toLowerCase()) ||
     b.tenant?.email?.toLowerCase().includes(search.toLowerCase()) ||
     b.tenant?.phone?.includes(search)
   );
 
+  const groupedTenants = Object.values(filteredBookings.reduce((acc: any, b: any) => {
+    if (!b.tenant) return acc;
+    if (!acc[b.tenant.id]) {
+      acc[b.tenant.id] = { tenant: b.tenant, bookings: [] };
+    }
+    acc[b.tenant.id].bookings.push(b);
+    return acc;
+  }, {}));
+
+  const uniqueTenantCount = new Set(approvedBookings.map((b: any) => b.tenant?.id).filter(Boolean)).size;
+
   const stats = {
-    total: approvedBookings.length,
-    activeLeases: approvedBookings.filter((b) => b.status === "APPROVED").length,
-    totalRevenue: approvedBookings.reduce((sum: number, b: any) => sum + (b.listing?.price || 0), 0),
-    properties: [...new Set(approvedBookings.map((b: any) => b.listingId))].length,
+    total: uniqueTenantCount,
+    activeLeases: approvedBookings.filter((b) => ["APPROVED", "COMPLETED"].includes(b.status)).length,
+    totalRevenue: approvedBookings.reduce((sum: number, b: any) => sum + (b.unitTypeDetails?.monthlyRent || 0), 0),
+    properties: [...new Set(approvedBookings.map((b: any) => b.propertyId))].length,
   };
 
   return (
@@ -70,7 +81,7 @@ export default function TenantsPage() {
         <div className="space-y-3">
           {[...Array(3)].map((_, i) => <div key={i} className="h-20 animate-pulse rounded-xl bg-muted" />)}
         </div>
-      ) : filtered.length === 0 ? (
+      ) : groupedTenants.length === 0 ? (
         <div className="rounded-xl border border-dashed border-border p-12 text-center">
           <Users className="mx-auto h-10 w-10 text-muted-foreground" />
           <p className="mt-3 font-semibold">No tenants yet</p>
@@ -78,23 +89,27 @@ export default function TenantsPage() {
         </div>
       ) : (
         <div className="space-y-3">
-          {filtered.map((booking: any) => (
-            <div key={booking.id} className="rounded-xl border border-border bg-card p-5">
+          {groupedTenants.map((group: any) => (
+            <div key={group.tenant.id} className="rounded-xl border border-border bg-card p-5">
               <div className="flex items-center justify-between gap-4 flex-wrap">
                 <div>
-                  <p className="font-semibold">{booking.tenant?.fullName}</p>
+                  <p className="font-semibold">{group.tenant.fullName}</p>
                   <div className="mt-1 flex flex-wrap gap-3 text-xs text-muted-foreground">
-                    <span className="flex items-center gap-1"><Mail className="h-3 w-3" />{booking.tenant?.email}</span>
-                    {booking.tenant?.phone && <span className="flex items-center gap-1"><Phone className="h-3 w-3" />{booking.tenant.phone}</span>}
+                    <span className="flex items-center gap-1"><Mail className="h-3 w-3" />{group.tenant.email}</span>
+                    {group.tenant.phone && <span className="flex items-center gap-1"><Phone className="h-3 w-3" />{group.tenant.phone}</span>}
                   </div>
-                  <p className="mt-1.5 text-xs text-muted-foreground">
-                    {booking.listing?.title} · {booking.unitType} · KSh {booking.listing?.price?.toLocaleString()}/mo
-                  </p>
+                  <div className="mt-2 space-y-1">
+                    {group.bookings.map((booking: any) => (
+                      <p key={booking.id} className="text-xs text-muted-foreground">
+                        <span className="font-medium text-foreground">{booking.listing?.title}</span> · {booking.unitType} · KSh {booking.unitTypeDetails?.monthlyRent?.toLocaleString()}/mo
+                        <span className={`ml-2 rounded-full px-2 py-0.5 text-[10px] font-medium ${
+                          booking.status === "APPROVED" || booking.status === "COMPLETED" ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground"
+                        }`}>{booking.status}</span>
+                      </p>
+                    ))}
+                  </div>
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${
-                    booking.status === "APPROVED" ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground"
-                  }`}>{booking.status}</span>
                   <Link href="/inbox">
                     <Button size="sm" variant="outline" className="gap-1.5">
                       <MessageSquare className="h-3.5 w-3.5" /> Message

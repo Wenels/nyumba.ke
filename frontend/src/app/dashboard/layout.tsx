@@ -10,6 +10,7 @@ import {
   Home,
   LayoutDashboard,
   ListChecks,
+  ClipboardList,
   LogOut,
   Menu,
   Moon,
@@ -37,6 +38,7 @@ const NAV_ITEMS = [
     label: "Manage Bookings",
   },
   { href: "/dashboard/tenants", icon: Users, label: "Tenants" },
+  { href: "/dashboard/waitlist", icon: ClipboardList, label: "Waitlist" },
   { href: "/dashboard/issues", icon: AlertCircle, label: "Issues" },
   { href: "/dashboard/payments", icon: DollarSign, label: "Rent Payments" },
   {

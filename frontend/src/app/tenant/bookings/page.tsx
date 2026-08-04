@@ -1,14 +1,16 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { format } from "date-fns";
-import { CalendarCheck, Clock, CheckCircle2, XCircle, DollarSign, Eye, Home, Check, ChevronRight, FileText } from "lucide-react";
+import { CalendarCheck, Clock, CheckCircle2, XCircle, DollarSign, Eye, Home, Check, ChevronRight, FileText, AlertCircle, Phone, Loader2 } from "lucide-react";
 import { api, ApiError } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import Link from "next/link";
+import { useAuth } from "@/app/features/auth/hooks/use-auth";
 
 const STATUS_TABS = [
   "ALL",
@@ -61,11 +63,90 @@ export default function TenantBookingsPage() {
   const [selectingBooking, setSelectingBooking] = useState<any>(null);
   const [selectedUnitId, setSelectedUnitId] = useState<string>("");
   const queryClient = useQueryClient();
+  const { user } = useAuth();
+
+  const [payingBooking, setPayingBooking] = useState<any>(null);
+  const [paymentStatus, setPaymentStatus] = useState<"idle" | "polling" | "success" | "timeout">("idle");
+  const [checkoutRequestId, setCheckoutRequestId] = useState<string | null>(null);
+  const [phoneNumber, setPhoneNumber] = useState(user?.phone?.replace(/^0/, "") ?? "");
 
   const { data, isLoading } = useQuery({
     queryKey: ["tenant-bookings"],
     queryFn: () => api.get("/api/bookings/tenant") as Promise<{ bookings: any[] }>,
   });
+
+  const { data: incompleteData } = useQuery({
+    queryKey: ["tenant-incomplete-bookings"],
+    queryFn: () => api.get("/api/bookings/tenant/incomplete") as Promise<{ bookings: any[] }>,
+  });
+
+  const payMutation = useMutation({
+    mutationFn: (phone: string) => api.post(`/api/bookings/${payingBooking.id}/pay`, { phone }),
+    onSuccess: (res: any) => {
+      setCheckoutRequestId(res.checkoutRequestId);
+      setPaymentStatus("polling");
+    },
+    onError: (err) => {
+      const message = err instanceof ApiError ? (err.body as any)?.error : "Payment initiation failed";
+      toast.error("Error", { description: message });
+      setPaymentStatus("idle");
+    },
+  });
+
+  // Temporary hook for simulated payment confirmation
+  const simulatePaymentMutation = useMutation({
+    mutationFn: () => api.post(`/api/bookings/${payingBooking.id}/confirm-payment`, {
+      mpesaReceiptNo: `SIM-${Date.now()}`,
+      checkoutRequestId
+    }),
+    onSuccess: () => {
+      setPaymentStatus("success");
+      toast.success("Payment successful!");
+      queryClient.invalidateQueries({ queryKey: ["tenant-bookings"] });
+      queryClient.invalidateQueries({ queryKey: ["tenant-incomplete-bookings"] });
+      setTimeout(() => {
+        setPayingBooking(null);
+        setPaymentStatus("idle");
+      }, 2000);
+    }
+  });
+
+  useEffect(() => {
+    if (paymentStatus !== "polling" || !payingBooking?.id) return;
+
+    let timeoutId: NodeJS.Timeout;
+    const pollInterval = setInterval(async () => {
+      try {
+        const res = await api.get(`/api/bookings/${payingBooking.id}`) as { booking: any };
+        if (res.booking?.feePaid) {
+          setPaymentStatus("success");
+          clearInterval(pollInterval);
+          toast.success("Payment successful!");
+          queryClient.invalidateQueries({ queryKey: ["tenant-bookings"] });
+          queryClient.invalidateQueries({ queryKey: ["tenant-incomplete-bookings"] });
+          setTimeout(() => {
+            setPayingBooking(null);
+            setPaymentStatus("idle");
+          }, 2000);
+        }
+      } catch (err) {
+        console.error("Polling error", err);
+      }
+    }, 5000);
+
+    timeoutId = setTimeout(() => {
+      clearInterval(pollInterval);
+      if (paymentStatus === "polling") {
+        setPaymentStatus("timeout");
+        toast.error("Payment timed out");
+      }
+    }, 120000);
+
+    return () => {
+      clearInterval(pollInterval);
+      clearTimeout(timeoutId);
+    };
+  }, [paymentStatus, payingBooking?.id, queryClient]);
 
   const { data: unitsData, isLoading: isLoadingUnits } = useQuery({
     queryKey: ["available-units", selectingBooking?.id],
@@ -104,8 +185,9 @@ export default function TenantBookingsPage() {
     },
   });
 
+  const incompleteBookings = incompleteData?.bookings ?? [];
   const bookings = data?.bookings ?? [];
-  const filtered = bookings.filter((b) => {
+  const filtered = bookings.filter((b: any) => {
     const matchTab = activeTab === "ALL" || b.status === activeTab;
     const matchSearch = !search || b.listing?.title?.toLowerCase().includes(search.toLowerCase());
     return matchTab && matchSearch;
@@ -113,9 +195,9 @@ export default function TenantBookingsPage() {
 
   const stats = {
     total: bookings.length,
-    awaiting: bookings.filter((b) => ["PENDING", "NEED_REVIEW"].includes(b.status)).length,
-    approved: bookings.filter((b) => ["APPROVED", "VIEWING_SCHEDULED", "UNIT_SELECTED"].includes(b.status)).length,
-    totalPaid: bookings.filter((b) => b.feePaid).length * 1000,
+    awaiting: bookings.filter((b: any) => ["PENDING", "NEED_REVIEW"].includes(b.status)).length,
+    approved: bookings.filter((b: any) => ["APPROVED", "VIEWING_SCHEDULED", "UNIT_SELECTED"].includes(b.status)).length,
+    totalPaid: bookings.filter((b: any) => b.feePaid).length * 1000,
   };
 
   return (
@@ -124,6 +206,95 @@ export default function TenantBookingsPage() {
         <h1 className="text-2xl font-bold tracking-tight">My Bookings</h1>
         <p className="mt-1 text-muted-foreground">Track your 7-stage property booking requests and select your unit</p>
       </div>
+
+      {incompleteBookings.length > 0 && (
+        <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="flex gap-3">
+            <AlertCircle className="h-5 w-5 text-amber-600 shrink-0 mt-0.5" />
+            <div>
+              <p className="font-bold text-amber-800">Incomplete Payments ({incompleteBookings.length})</p>
+              <p className="text-sm text-amber-700 mt-1">
+                You have bookings awaiting the KES 1,000 commitment fee. They are not visible to the landlord yet.
+              </p>
+            </div>
+          </div>
+          <div className="flex flex-col gap-2 shrink-0 w-full sm:w-auto">
+            {incompleteBookings.map((b: any) => (
+              <Button key={b.id} onClick={() => setPayingBooking(b)} className="bg-amber-600 text-white hover:bg-amber-700 whitespace-nowrap">
+                Pay for {b.listing?.title} →
+              </Button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* M-Pesa Modal */}
+      {payingBooking && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-foreground/60 px-4">
+          <div className="w-full max-w-sm rounded-2xl bg-background p-6 shadow-xl relative overflow-hidden">
+            {paymentStatus === "success" ? (
+              <div className="text-center py-6">
+                <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-emerald-100 mb-4">
+                  <CheckCircle2 className="h-8 w-8 text-emerald-600" />
+                </div>
+                <h3 className="text-xl font-bold text-foreground">Payment Received</h3>
+              </div>
+            ) : paymentStatus === "polling" ? (
+              <div className="text-center py-6">
+                <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-primary/10 mb-4 animate-pulse">
+                  <Loader2 className="h-8 w-8 text-primary animate-spin" />
+                </div>
+                <h3 className="text-xl font-bold text-foreground">Waiting for M-Pesa</h3>
+                <p className="mt-2 text-sm text-muted-foreground px-4">
+                  Please check your phone and enter your M-Pesa PIN.
+                </p>
+                <Button variant="outline" size="sm" className="mt-6"
+                  onClick={() => simulatePaymentMutation.mutate()} loading={simulatePaymentMutation.isPending}>
+                  Simulate Payment Success (Dev Only)
+                </Button>
+              </div>
+            ) : (
+              <>
+                <div className="flex items-center gap-3 mb-5">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10">
+                    <Phone className="h-5 w-5 text-primary" />
+                  </div>
+                  <div>
+                    <p className="font-semibold">Complete Booking Fee</p>
+                    <p className="text-xs text-muted-foreground">{payingBooking.listing?.title}</p>
+                  </div>
+                </div>
+
+                <div className="rounded-xl bg-primary/5 border border-primary/10 p-4 text-center mb-5">
+                  <p className="text-3xl font-bold text-primary">KES 1,000</p>
+                </div>
+
+                {paymentStatus === "timeout" && (
+                  <div className="mb-4 flex items-start gap-2 rounded-lg bg-red-50 p-3 text-red-600 text-xs">
+                    <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
+                    <p>The request timed out. Try again.</p>
+                  </div>
+                )}
+
+                <div className="mb-4">
+                  <Label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Phone Number</Label>
+                  <div className="mt-1.5 flex">
+                    <span className="flex items-center rounded-l-md border border-r-0 border-input bg-muted px-3 text-sm">🇰🇪 +254</span>
+                    <Input value={phoneNumber} onChange={(e) => setPhoneNumber(e.target.value)} placeholder="7XX XXX XXX" className="rounded-l-none" />
+                  </div>
+                </div>
+
+                <div className="flex gap-2">
+                  <Button variant="outline" className="flex-1" onClick={() => { setPayingBooking(null); setPaymentStatus("idle"); }}>Cancel</Button>
+                  <Button className="flex-1 bg-primary text-primary-foreground" loading={payMutation.isPending} disabled={!phoneNumber} onClick={() => payMutation.mutate(phoneNumber)}>
+                    {payMutation.isPending ? "Sending..." : "Send STK Push"}
+                  </Button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Stats */}
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
