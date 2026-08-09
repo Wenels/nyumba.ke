@@ -1,17 +1,31 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, Suspense } from "react";
+import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { DollarSign, Clock, AlertTriangle, TrendingUp, Download, Search, Filter, RefreshCw } from "lucide-react";
 import { format } from "date-fns";
 import { api } from "@/lib/api";
 import { Button } from "@/components/ui/button";
+import Link from "next/link";
 
 const TABS = ["Rent Schedules", "Received Payments"];
 
-export default function PaymentsPage() {
-  const [activeTab, setActiveTab] = useState("Rent Schedules");
-  const [searchQuery, setSearchQuery] = useState("");
+function PaymentsContent() {
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const pathname = usePathname();
+
+  const [activeTab, setActiveTab] = useState(searchParams.get("tab") || "Rent Schedules");
+  const [searchQuery, setSearchQuery] = useState(searchParams.get("search") || "");
+
+  useEffect(() => {
+    const params = new URLSearchParams();
+    if (activeTab && activeTab !== "Rent Schedules") params.set("tab", activeTab);
+    if (searchQuery) params.set("search", searchQuery);
+    const query = params.toString();
+    router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false });
+  }, [activeTab, searchQuery, pathname, router]);
 
   const { data, isLoading, refetch, isFetching } = useQuery({
     queryKey: ["landlord-payments"],
@@ -145,11 +159,18 @@ export default function PaymentsPage() {
                       <p className="font-semibold">KES {payment.amount.toLocaleString()}</p>
                       <p className="text-xs text-muted-foreground">Due: {format(new Date(payment.dueDate), "dd MMM yyyy")}</p>
                     </div>
-                    <span className={`rounded-full px-2.5 py-1 text-xs font-medium ml-4 ${
-                      payment.status === "OVERDUE" ? "bg-destructive/10 text-destructive" :
-                      payment.status === "DUE_NOW" ? "bg-secondary/10 text-secondary" :
-                      "bg-muted text-muted-foreground"
-                    }`}>{payment.status.replace("_", " ")}</span>
+                    <div className="flex items-center gap-3 ml-4">
+                      <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${
+                        payment.status === "OVERDUE" ? "bg-destructive/10 text-destructive" :
+                        payment.status === "DUE_NOW" ? "bg-secondary/10 text-secondary" :
+                        "bg-muted text-muted-foreground"
+                      }`}>{payment.status.replace("_", " ")}</span>
+                      <Link href={`/dashboard/transactions/${payment.id}`}>
+                        <Button variant="outline" size="sm" className="text-xs">
+                          View
+                        </Button>
+                      </Link>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -172,7 +193,14 @@ export default function PaymentsPage() {
                       <p className="font-semibold text-primary">KES {payment.amount.toLocaleString()}</p>
                       <p className="text-xs text-muted-foreground">Paid: {payment.paidDate ? format(new Date(payment.paidDate), "dd MMM yyyy") : "-"}</p>
                     </div>
-                    <span className="rounded-full bg-primary/10 px-2.5 py-1 text-xs font-medium text-primary ml-4">PAID</span>
+                    <div className="flex items-center gap-3 ml-4">
+                      <span className="rounded-full bg-primary/10 px-2.5 py-1 text-xs font-medium text-primary">PAID</span>
+                      <Link href={`/dashboard/transactions/${payment.id}`}>
+                        <Button variant="outline" size="sm" className="text-xs">
+                          View
+                        </Button>
+                      </Link>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -181,5 +209,17 @@ export default function PaymentsPage() {
         </div>
       )}
     </div>
+  );
+}
+
+export default function PaymentsPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex min-h-[60vh] items-center justify-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+      </div>
+    }>
+      <PaymentsContent />
+    </Suspense>
   );
 }

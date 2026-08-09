@@ -65,10 +65,11 @@ export async function getContract(req, res) {
   const contract = await prisma.contract.findUnique({
     where: { id: req.params.id },
     include: {
-      property: { select: { id: true, name: true, slug: true, address: true } },
-      unit: { select: { id: true, unitNumber: true, floor: true } },
-      tenant: { select: { id: true, fullName: true, email: true, phone: true } },
-      landlord: { select: { id: true, fullName: true, email: true, phone: true } },
+      property: { select: { id: true, name: true, slug: true, address: true, photos: true, amenities: true } },
+      unitType: { select: { id: true, label: true, bedroomCount: true, monthlyRent: true } },
+      unit: { select: { id: true, unitNumber: true, floor: true, status: true, rentOverride: true } },
+      tenant: { select: { id: true, fullName: true, email: true, phone: true, avatarUrl: true } },
+      landlord: { select: { id: true, fullName: true, email: true, phone: true, avatarUrl: true } },
       booking: true,
       rentPayments: { orderBy: { dueDate: "asc" } },
     },

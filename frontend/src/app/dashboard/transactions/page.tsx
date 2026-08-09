@@ -101,7 +101,14 @@ export default function TransactionsPage() {
                   {payment.paidDate ? format(new Date(payment.paidDate), "dd MMM yyyy") : "-"}
                 </p>
               </div>
-              <span className="ml-4 rounded-full bg-primary/10 px-2.5 py-1 text-xs font-medium text-primary">RENT</span>
+              <div className="flex items-center gap-3 ml-4">
+                <span className="rounded-full bg-primary/10 px-2.5 py-1 text-xs font-medium text-primary">RENT</span>
+                <Link href={`/dashboard/transactions/${payment.id}`}>
+                  <Button variant="outline" size="sm" className="text-xs">
+                    View
+                  </Button>
+                </Link>
+              </div>
             </div>
           ))}
         </div>

@@ -7,7 +7,7 @@ import Link from "next/link";
 import {
   Search, SlidersHorizontal, MapPin, BedDouble, Bath,
   ShieldCheck, ImageOff, Grid3X3, List, Map as MapIcon,
-  ChevronDown, X, Navigation
+  ChevronDown, X, Navigation, ArrowLeft
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -143,6 +143,17 @@ function BrowseContent() {
 
   return (
     <div className="flex h-screen flex-col overflow-hidden">
+      {/* Back button */}
+      <div className="border-b border-border bg-background px-4 py-2 shrink-0">
+        <Link
+          href="/"
+          className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          Home
+        </Link>
+      </div>
+
       {/* Top search bar */}
       <div className="border-b border-border bg-background px-4 py-3 shrink-0">
         <div className="mx-auto max-w-7xl">

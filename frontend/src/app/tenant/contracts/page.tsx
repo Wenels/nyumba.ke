@@ -1,18 +1,33 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { FileText, CheckCircle2, Clock, Lock, PenLine, DollarSign, X, Phone, ShieldCheck } from "lucide-react";
 import { api, ApiError } from "@/lib/api";
 import { Button } from "@/components/ui/button";
+import Link from "next/link";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { useSearchParams, useRouter, usePathname } from "next/navigation";
 
-export default function TenantContractsPage() {
-  const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState("");
+function ContractsContent() {
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const pathname = usePathname();
+
+  const [search, setSearch] = useState(searchParams.get("search") || "");
+  const [statusFilter, setStatusFilter] = useState(searchParams.get("status") || "");
+
+  // Sync search and statusFilter to URL
+  useEffect(() => {
+    const params = new URLSearchParams();
+    if (search) params.set("search", search);
+    if (statusFilter) params.set("status", statusFilter);
+    const query = params.toString();
+    router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false });
+  }, [search, statusFilter, pathname, router]);
   const [reviewingContract, setReviewingContract] = useState<any>(null);
   const [payingContract, setPayingContract] = useState<any>(null);
   const [phone, setPhone] = useState("");
@@ -345,6 +360,11 @@ export default function TenantContractsPage() {
                       <DollarSign className="h-4 w-4" /> Make Initial Payment (Stage 7)
                     </Button>
                   )}
+                  <Link href={`/tenant/contracts/${contract.id}`}>
+                    <Button size="sm" variant="outline">
+                      View Details
+                    </Button>
+                  </Link>
                 </div>
               </div>
             </div>
@@ -352,5 +372,17 @@ export default function TenantContractsPage() {
         </div>
       )}
     </div>
+  );
+}
+
+export default function TenantContractsPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex min-h-[60vh] items-center justify-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+      </div>
+    }>
+      <ContractsContent />
+    </Suspense>
   );
 }

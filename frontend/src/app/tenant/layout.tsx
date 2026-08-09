@@ -72,7 +72,13 @@ export default function TenantLayout({
   );
 
   useEffect(() => {
-    if (!isLoading && !user) router.push("/login");
+    if (!isLoading) {
+      if (!user) {
+        router.push("/login");
+      } else if (user.role !== "TENANT" && user.role !== "ADMIN") {
+        router.push("/");
+      }
+    }
   }, [isLoading, user, router]);
 
   useEffect(() => {
@@ -111,7 +117,7 @@ export default function TenantLayout({
     );
   }
 
-  if (!user) return null;
+  if (!user || (user.role !== "TENANT" && user.role !== "ADMIN")) return null;
 
   // Nav links — icon-only when collapsed
   const NavLinks = ({ onClick }: { onClick?: () => void }) => (

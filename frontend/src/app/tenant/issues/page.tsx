@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { format } from "date-fns";
@@ -9,13 +9,18 @@ import { api } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { useSearchParams, useRouter, usePathname } from "next/navigation";
 
 const CATEGORIES = ["Plumbing", "Electrical", "Structural", "Security", "Pest Control", "Appliances", "Cleaning", "Other"];
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
 
-export default function TenantIssuesPage() {
-  const [status, setStatus] = useState("");
-  const [priority, setPriority] = useState("");
+function IssuesContent() {
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const pathname = usePathname();
+
+  const [status, setStatus] = useState(searchParams.get("status") || "");
+  const [priority, setPriority] = useState(searchParams.get("priority") || "");
   const [showModal, setShowModal] = useState(false);
   const [photos, setPhotos] = useState<File[]>([]);
   const [form, setForm] = useState({
@@ -27,6 +32,15 @@ export default function TenantIssuesPage() {
     reportedTo: "LANDLORD",
   });
   const queryClient = useQueryClient();
+
+  // Sync status and priority to URL
+  useEffect(() => {
+    const params = new URLSearchParams();
+    if (status) params.set("status", status);
+    if (priority) params.set("priority", priority);
+    const query = params.toString();
+    router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false });
+  }, [status, priority, pathname, router]);
 
   const { data: issuesData, isLoading } = useQuery({
     queryKey: ["tenant-issues", status, priority],
@@ -199,7 +213,9 @@ export default function TenantIssuesPage() {
                   className="mt-1.5 w-full rounded-md border border-input bg-background px-3 py-2 text-sm">
                   <option value="">Select Property</option>
                   {contracts.map((c: any) => (
-                    <option key={c.listingId} value={c.listingId}>{c.listing?.title}</option>
+                    <option key={c.id} value={c.propertyId || c.listing?.id}>
+                      {c.listing?.title} (Unit {c.unitNumber || c.unit?.unitNumber || "assigned"})
+                    </option>
                   ))}
                 </select>
               </div>
@@ -278,5 +294,17 @@ export default function TenantIssuesPage() {
         </div>
       )}
     </div>
+  );
+}
+
+export default function TenantIssuesPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex min-h-[60vh] items-center justify-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+      </div>
+    }>
+      <IssuesContent />
+    </Suspense>
   );
 }

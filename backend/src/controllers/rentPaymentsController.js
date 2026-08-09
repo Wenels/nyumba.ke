@@ -59,6 +59,34 @@ export async function getLandlordRentPayments(req, res) {
   res.json({ payments, stats });
 }
 
+export async function getPaymentDetail(req, res) {
+  const payment = await prisma.rentPayment.findUnique({
+    where: { id: req.params.id },
+    include: {
+      contract: {
+        include: {
+          property: { select: { id: true, name: true, slug: true, address: true, photos: true } },
+          unitType: { select: { id: true, label: true, bedroomCount: true, monthlyRent: true } },
+          unit: { select: { id: true, unitNumber: true, floor: true, rentOverride: true } },
+          tenant: { select: { id: true, fullName: true, email: true, phone: true } },
+          landlord: { select: { id: true, fullName: true, email: true, phone: true } },
+        }
+      }
+    }
+  });
+
+  if (!payment) return res.status(404).json({ error: "Payment not found" });
+
+  const isTenant = payment.tenantId === req.session.userId;
+  const isLandlord = payment.landlordId === req.session.userId;
+
+  if (!isTenant && !isLandlord && !req.session.isAdmin) {
+    return res.status(403).json({ error: "Forbidden" });
+  }
+
+  res.json({ payment });
+}
+
 export async function initiateRentPayment(req, res) {
   const { phone } = req.body;
   const payment = await prisma.rentPayment.findUnique({ where: { id: req.params.id } });

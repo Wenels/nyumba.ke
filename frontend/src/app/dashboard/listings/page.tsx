@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, Suspense } from "react";
+import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -30,12 +31,28 @@ interface MyPropertiesResponse {
   properties: Property[];
 }
 
-export default function MyListingsPage() {
+function ListingsContent() {
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const pathname = usePathname();
   const queryClient = useQueryClient();
-  const [searchQuery, setSearchQuery] = useState("");
-  const [viewMode, setViewMode] = useState<"list" | "map">("list");
-  const [statusFilter, setStatusFilter] = useState("any");
-  const [sortBy, setSortBy] = useState("newest");
+
+  const [searchQuery, setSearchQuery] = useState(searchParams.get("search") || "");
+  const [viewMode, setViewMode] = useState<"list" | "map">(
+    (searchParams.get("view") as "list" | "map") || "list"
+  );
+  const [statusFilter, setStatusFilter] = useState(searchParams.get("status") || "any");
+  const [sortBy, setSortBy] = useState(searchParams.get("sort") || "newest");
+
+  useEffect(() => {
+    const params = new URLSearchParams();
+    if (searchQuery) params.set("search", searchQuery);
+    if (viewMode !== "list") params.set("view", viewMode);
+    if (statusFilter !== "any") params.set("status", statusFilter);
+    if (sortBy !== "newest") params.set("sort", sortBy);
+    const query = params.toString();
+    router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false });
+  }, [searchQuery, viewMode, statusFilter, sortBy, pathname, router]);
 
   const { data, isLoading, isError } = useQuery<MyPropertiesResponse>({
     queryKey: ["my-listings"],
@@ -281,6 +298,11 @@ export default function MyListingsPage() {
                       </div>
 
                       <div className="flex items-center gap-2">
+                        <Link href={`/dashboard/listings/${prop.slug}`}>
+                          <Button size="sm" className="text-xs">
+                            View Details
+                          </Button>
+                        </Link>
                         <Link href={`/listings/${prop.slug}`}>
                           <Button variant="outline" size="sm" className="text-xs">
                             View Public
@@ -312,5 +334,17 @@ export default function MyListingsPage() {
         </div>
       )}
     </div>
+  );
+}
+
+export default function MyListingsPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex min-h-[60vh] items-center justify-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+      </div>
+    }>
+      <ListingsContent />
+    </Suspense>
   );
 }

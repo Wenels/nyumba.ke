@@ -1,7 +1,7 @@
 "use client";
 
 import { Search, SlidersHorizontal, X } from "lucide-react";
-import { useSearchParams } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
 import { BrowseListingCard } from "@/app/features/listings/components/browse-listing-card";
 import {
@@ -32,11 +32,24 @@ const PROPERTY_TYPES = [
 ];
 
 function BrowseContent() {
-  const [area, setArea] = useState("");
-  const [propertyType, setPropertyType] = useState("");
-  const [minPrice, setMinPrice] = useState<number | undefined>();
-  const [maxPrice, setMaxPrice] = useState<number | undefined>();
-  const [bedrooms, setBedrooms] = useState<number | undefined>();
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const pathname = usePathname();
+
+  // Initialize all filter state from URL params
+  const [area, setArea] = useState(searchParams.get("area") || "");
+  const [propertyType, setPropertyType] = useState(searchParams.get("type") || "");
+  const [minPrice, setMinPrice] = useState<number | undefined>(
+    searchParams.get("minPrice") ? Number(searchParams.get("minPrice")) : undefined
+  );
+  const [maxPrice, setMaxPrice] = useState<number | undefined>(
+    searchParams.get("maxPrice") ? Number(searchParams.get("maxPrice")) : undefined
+  );
+  const [bedrooms, setBedrooms] = useState<number | undefined>(
+    searchParams.get("bedrooms") !== null && searchParams.get("bedrooms") !== ""
+      ? Number(searchParams.get("bedrooms"))
+      : undefined
+  );
 
   // Debounce the typed area input — fires query 400ms after user stops typing
   const debouncedArea = useDebounce(area, 400);
@@ -50,17 +63,20 @@ function BrowseContent() {
   });
 
   const listings = data?.listings ?? [];
-  const searchParams = useSearchParams();
 
+  // Sync all filter state to URL whenever it changes (persists on refresh)
   useEffect(() => {
-    const areaParam = searchParams.get("area");
-    if (areaParam) {
-      setArea(areaParam);
-    }
-  }, [searchParams]);
+    const params = new URLSearchParams();
+    if (debouncedArea) params.set("area", debouncedArea);
+    if (propertyType) params.set("type", propertyType);
+    if (minPrice !== undefined) params.set("minPrice", minPrice.toString());
+    if (maxPrice !== undefined) params.set("maxPrice", maxPrice.toString());
+    if (bedrooms !== undefined) params.set("bedrooms", bedrooms.toString());
+    const query = params.toString();
+    router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false });
+  }, [debouncedArea, propertyType, minPrice, maxPrice, bedrooms, pathname, router]);
 
   function handleAreaPill(a: string) {
-    // Toggle: if the same pill is already typed in, clear it; otherwise set it
     setArea(area === a ? "" : a);
   }
 

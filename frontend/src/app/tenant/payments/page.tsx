@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { format } from "date-fns";
@@ -8,6 +8,7 @@ import { DollarSign, Clock, AlertTriangle, CheckCircle2, CalendarDays } from "lu
 import { api } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { useSearchParams, useRouter, usePathname } from "next/navigation";
 
 const FILTER_PILLS = ["All", "Due Soon", "Due Now", "Overdue", "Upcoming", "Paid"];
 
@@ -24,13 +25,26 @@ interface Payment {
   };
 }
 
-export default function TenantPaymentsPage() {
-  const [activeTab, setActiveTab] = useState("Rent Schedule");
-  const [filter, setFilter] = useState("All");
+function PaymentsContent() {
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const pathname = usePathname();
+
+  const [activeTab, setActiveTab] = useState(searchParams.get("tab") || "Rent Schedule");
+  const [filter, setFilter] = useState(searchParams.get("filter") || "All");
   const [phoneNumber, setPhoneNumber] = useState("");
   const [payingId, setPayingId] = useState<string | null>(null);
   const [paymentStatus, setPaymentStatus] = useState<"idle" | "polling" | "success" | "timeout">("idle");
   const queryClient = useQueryClient();
+
+  // Sync tab and filter to URL
+  useEffect(() => {
+    const params = new URLSearchParams();
+    if (activeTab && activeTab !== "Rent Schedule") params.set("tab", activeTab);
+    if (filter && filter !== "All") params.set("filter", filter);
+    const query = params.toString();
+    router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false });
+  }, [activeTab, filter, pathname, router]);
 
   const { data, isLoading } = useQuery({
     queryKey: ["tenant-payments"],
@@ -274,5 +288,17 @@ export default function TenantPaymentsPage() {
         </div>
       )}
     </div>
+  );
+}
+
+export default function TenantPaymentsPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex min-h-[60vh] items-center justify-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+      </div>
+    }>
+      <PaymentsContent />
+    </Suspense>
   );
 }

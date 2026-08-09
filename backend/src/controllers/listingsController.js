@@ -8,4 +8,5 @@ export {
   reportProperty as reportListing,
   joinWaitlist,
   getLandlordWaitlist,
+  getLandlordPropertyDetail,
 } from "./propertiesController.js";

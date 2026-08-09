@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { format } from "date-fns";
@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import Link from "next/link";
 import { useAuth } from "@/app/features/auth/hooks/use-auth";
+import { useSearchParams, useRouter, usePathname } from "next/navigation";
 
 const STATUS_TABS = [
   "ALL",
@@ -57,13 +58,26 @@ function getStageNumber(status: string, hasUnit: boolean, contractStatus?: strin
   }
 }
 
-export default function TenantBookingsPage() {
-  const [activeTab, setActiveTab] = useState("ALL");
-  const [search, setSearch] = useState("");
+function BookingsContent() {
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const pathname = usePathname();
+
+  const [activeTab, setActiveTab] = useState(searchParams.get("tab") || "ALL");
+  const [search, setSearch] = useState(searchParams.get("search") || "");
   const [selectingBooking, setSelectingBooking] = useState<any>(null);
   const [selectedUnitId, setSelectedUnitId] = useState<string>("");
   const queryClient = useQueryClient();
   const { user } = useAuth();
+
+  // Sync tab and search to URL
+  useEffect(() => {
+    const params = new URLSearchParams();
+    if (activeTab && activeTab !== "ALL") params.set("tab", activeTab);
+    if (search) params.set("search", search);
+    const query = params.toString();
+    router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false });
+  }, [activeTab, search, pathname, router]);
 
   const [payingBooking, setPayingBooking] = useState<any>(null);
   const [paymentStatus, setPaymentStatus] = useState<"idle" | "polling" | "success" | "timeout">("idle");
@@ -639,5 +653,17 @@ export default function TenantBookingsPage() {
         </div>
       )}
     </div>
+  );
+}
+
+export default function TenantBookingsPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex min-h-[60vh] items-center justify-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+      </div>
+    }>
+      <BookingsContent />
+    </Suspense>
   );
 }

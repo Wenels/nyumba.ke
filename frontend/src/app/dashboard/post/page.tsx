@@ -42,6 +42,8 @@ interface UnitTypeRow {
   count: number;
   rent: number;
   deposit: number;
+  bedrooms: number;
+  bathrooms: number;
 }
 
 interface VacantUnit {
@@ -77,7 +79,7 @@ export default function PostListingPage() {
 
   // --- STEP 2: Units & Pricing ---
   const [unitTypes, setUnitTypes] = useState<UnitTypeRow[]>([
-    { type: "1 Bedroom", count: 0, rent: 0, deposit: 0 },
+    { type: "1 Bedroom", count: 0, rent: 0, deposit: 0, bedrooms: 1, bathrooms: 1 },
   ]);
 
   // --- STEP 3: Vacancies ---
@@ -201,11 +203,27 @@ export default function PostListingPage() {
   };
   const prevStep = () => setCurrentStep((s) => Math.max(s - 1, 1));
 
-  function handleMapChange(newLat: number, newLng: number) {
+  async function handleMapChange(newLat: number, newLng: number) {
     setLat(newLat);
     setLng(newLng);
-    // Mock reverse geocoding — in production this would call a geocoder API
     setSearchAddress(`Pin location: ${newLat.toFixed(5)}, ${newLng.toFixed(5)}`);
+    
+    try {
+      const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${newLat}&lon=${newLng}&zoom=18&addressdetails=1`);
+      if (res.ok) {
+        const data = await res.json();
+        const address = data.address || {};
+        
+        if (address.state || address.county) setCounty(address.state || address.county);
+        if (address.city || address.town || address.village) setTown(address.city || address.town || address.village);
+        if (address.suburb || address.neighbourhood) setEstate(address.suburb || address.neighbourhood);
+        if (address.city_district || address.district) setWard(address.city_district || address.district);
+        if (address.road) setStreet(address.road);
+        if (address.postcode) setPostalCode(address.postcode);
+      }
+    } catch (err) {
+      console.error("Reverse geocoding failed", err);
+    }
   }
 
   function handlePhotoChange(e: React.ChangeEvent<HTMLInputElement>) {
@@ -219,7 +237,7 @@ export default function PostListingPage() {
 
   // --- Row Builders ---
   const addUnitType = () => {
-    setUnitTypes((prev) => [...prev, { type: "1 Bedroom", count: 0, rent: 0, deposit: 0 }]);
+    setUnitTypes((prev) => [...prev, { type: "1 Bedroom", count: 0, rent: 0, deposit: 0, bedrooms: 1, bathrooms: 1 }]);
   };
   const removeUnitType = (index: number) => {
     setUnitTypes((prev) => prev.filter((_, i) => i !== index));
@@ -259,12 +277,10 @@ export default function PostListingPage() {
     setIsSubmitting(true);
     try {
       const unitTypesPayload = unitTypes.map((ut) => {
-        const bedMatch = ut.type.match(/(\d+)/);
-        const count = bedMatch ? parseInt(bedMatch[1]) : (ut.type.toLowerCase().includes("studio") ? 0 : 1);
         return {
           label: ut.type,
-          bedroomCount: count,
-          bathrooms: 1,
+          bedroomCount: ut.bedrooms,
+          bathrooms: ut.bathrooms,
           monthlyRent: ut.rent,
           securityDeposit: ut.deposit,
           description: `${ut.type} unit category in ${propertyName}`,
@@ -621,7 +637,7 @@ export default function PostListingPage() {
                     />
                   </div>
 
-                  <div className="flex gap-2 items-end">
+                  <div className="flex gap-2 items-end md:col-span-2">
                     <div className="flex-1">
                       <Label className="text-xs font-semibold">Security Deposit (KSh) *</Label>
                       <Input
@@ -631,6 +647,32 @@ export default function PostListingPage() {
                         onChange={(e) => {
                           const copy = [...unitTypes];
                           copy[idx].deposit = parseInt(e.target.value) || 0;
+                          setUnitTypes(copy);
+                        }}
+                      />
+                    </div>
+                    <div className="flex-1">
+                      <Label className="text-xs font-semibold">Bedrooms *</Label>
+                      <Input
+                        type="number"
+                        className="mt-1 text-xs"
+                        value={row.bedrooms}
+                        onChange={(e) => {
+                          const copy = [...unitTypes];
+                          copy[idx].bedrooms = parseInt(e.target.value) || 0;
+                          setUnitTypes(copy);
+                        }}
+                      />
+                    </div>
+                    <div className="flex-1">
+                      <Label className="text-xs font-semibold">Bathrooms *</Label>
+                      <Input
+                        type="number"
+                        className="mt-1 text-xs"
+                        value={row.bathrooms}
+                        onChange={(e) => {
+                          const copy = [...unitTypes];
+                          copy[idx].bathrooms = parseInt(e.target.value) || 0;
                           setUnitTypes(copy);
                         }}
                       />
