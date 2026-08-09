@@ -28,10 +28,17 @@ const NAIROBI = { lat: -1.2921, lng: 36.8219 };
 
 export default function TenantMapPage() {
   const mapRef = useRef<HTMLDivElement>(null);
-  const mapInstanceRef = useRef<unknown>(null);
+  const mapContainerRef = useRef<HTMLDivElement>(null);
+  const mapInstanceRef = useRef<any>(null);
   const markersRef = useRef<unknown[]>([]);
+  const streetLayerRef = useRef<any>(null);
+  const satLayerRef = useRef<any>(null);
+  const labelsLayerRef = useRef<any>(null);
+  const roadsLayerRef = useRef<any>(null);
+  const isSatRef = useRef(false);
   const [search, setSearch] = useState("");
   const [selected, setSelected] = useState<Listing | null>(null);
+  const [isSat, setIsSat] = useState(false);
 
   // Debounce the search input — 400ms delay before querying the API
   const debouncedSearch = useDebounce(search, 400);
@@ -58,10 +65,30 @@ export default function TenantMapPage() {
         [NAIROBI.lat, NAIROBI.lng],
         12,
       );
-      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+
+      const streetLayer = L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
         attribution: "© OpenStreetMap contributors",
       }).addTo(map);
 
+      const satLayer = L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}", {
+        attribution: "© Esri World Imagery",
+        maxZoom: 19,
+      });
+
+      const labelsLayer = L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}", {
+        attribution: "© Esri",
+        maxZoom: 19,
+      });
+
+      const roadsLayer = L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Transportation/MapServer/tile/{z}/{y}/{x}", {
+        attribution: "© Esri",
+        maxZoom: 19,
+      });
+
+      streetLayerRef.current = streetLayer;
+      satLayerRef.current = satLayer;
+      labelsLayerRef.current = labelsLayer;
+      roadsLayerRef.current = roadsLayer;
       mapInstanceRef.current = map;
     });
 
@@ -148,9 +175,61 @@ export default function TenantMapPage() {
       </div>
 
       {/* Map + panel */}
-      <div className="relative flex-1 rounded-xl overflow-hidden border border-border">
+      <div ref={mapContainerRef} className="relative flex-1 rounded-xl overflow-hidden border border-border">
         {/* Leaflet map */}
         <div ref={mapRef} className="absolute inset-0 z-0" />
+
+        {/* Map controls: satellite + fullscreen */}
+        <div className="absolute top-3 right-3 z-[1000] flex flex-col gap-1.5">
+          <button
+            type="button"
+            onClick={() => {
+              const m = mapInstanceRef.current as any;
+              if (!m) return;
+              if (isSat) {
+                m.removeLayer(satLayerRef.current);
+                m.removeLayer(labelsLayerRef.current);
+                m.removeLayer(roadsLayerRef.current);
+                streetLayerRef.current.addTo(m);
+                setIsSat(false);
+              } else {
+                m.removeLayer(streetLayerRef.current);
+                satLayerRef.current.addTo(m);
+                roadsLayerRef.current.addTo(m);
+                labelsLayerRef.current.addTo(m);
+                setIsSat(true);
+              }
+            }}
+            className="flex items-center gap-1.5 rounded-lg bg-white/90 backdrop-blur-sm px-2.5 py-1.5 text-xs font-semibold text-gray-800 shadow-md border border-white/60 hover:bg-white transition-colors"
+          >
+            {isSat ? (
+              <><svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m3 11 19-9-9 19-2-8-8-2z"/></svg>Street</>
+            ) : (
+              <><svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></svg>Satellite</>
+            )}
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              const el = mapContainerRef.current;
+              if (!el) return;
+              if (!document.fullscreenElement) {
+                el.requestFullscreen().then(() => {
+                  setTimeout(() => (mapInstanceRef.current as any)?.invalidateSize(), 50);
+                  setTimeout(() => (mapInstanceRef.current as any)?.invalidateSize(), 300);
+                });
+              } else {
+                document.exitFullscreen().then(() => {
+                  setTimeout(() => (mapInstanceRef.current as any)?.invalidateSize(), 100);
+                });
+              }
+            }}
+            className="flex items-center gap-1.5 rounded-lg bg-white/90 backdrop-blur-sm px-2.5 py-1.5 text-xs font-semibold text-gray-800 shadow-md border border-white/60 hover:bg-white transition-colors"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/></svg>
+            Fullscreen
+          </button>
+        </div>
 
         {/* Selected listing panel */}
         {selected && (

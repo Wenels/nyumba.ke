@@ -401,6 +401,50 @@ export async function getMyProperties(req, res) {
   res.json({ listings: formatted, properties: formatted });
 }
 
+export async function getLandlordPropertyDetail(req, res) {
+  const property = await prisma.property.findFirst({
+    where: {
+      OR: [
+        { id: req.params.slug },
+        { slug: req.params.slug },
+      ],
+      landlordId: req.session.userId,
+    },
+    include: {
+      photos: { orderBy: { order: "asc" } },
+      amenities: true,
+      conditionReport: true,
+      unitTypes: {
+        include: {
+          photos: { orderBy: { order: "asc" } },
+          amenities: true,
+          conditionReport: true,
+          units: {
+            include: {
+              photos: { orderBy: { order: "asc" } },
+              amenities: true,
+              conditionReport: true,
+              contracts: {
+                where: { status: { in: ["ACTIVE", "AWAITING_PAYMENT", "PENDING"] } },
+                include: { tenant: { select: { id: true, fullName: true, email: true, phone: true } } }
+              },
+              issues: {
+                where: { status: { not: "CLOSED" } },
+                include: { tenant: { select: { id: true, fullName: true } } }
+              }
+            },
+          },
+        },
+      },
+      _count: { select: { savedBy: true, conversations: true, reports: true } },
+    },
+  });
+
+  if (!property) return res.status(404).json({ error: "Property not found or unauthorized" });
+
+  res.json({ property });
+}
+
 export async function reportProperty(req, res) {
   const { reportType, reason, details } = req.body;
   const VALID_TYPES = ["SCAM", "WRONG_INFO", "ALREADY_RENTED", "INAPPROPRIATE", "OTHER"];

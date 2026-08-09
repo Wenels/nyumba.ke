@@ -296,10 +296,19 @@ export default function ListingDetailPage({ params }: { params: Promise<{ slug: 
       <div className="mx-auto max-w-6xl px-4 py-6">
         {/* Back + actions */}
         <div className="mb-4 flex items-center justify-between gap-4">
-          <button onClick={() => router.back()}
-            className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors">
-            <ArrowLeft className="h-4 w-4" /> Back to Explore
-          </button>
+        <Link
+            href={
+              user?.role === "LANDLORD"
+                ? "/dashboard/listings"
+                : user?.role === "TENANT"
+                ? "/tenant/browse"
+                : "/browse"
+            }
+            className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            {user?.role === "LANDLORD" ? "Back to My Listings" : "Back to Explore"}
+          </Link>
           <div className="flex items-center gap-2">
             {user && <SaveButton listing={property} />}
             <button onClick={() => setShowReport(true)}
@@ -460,7 +469,7 @@ export default function ListingDetailPage({ params }: { params: Promise<{ slug: 
                   <div className="space-y-6">
                     {unitTypes.map((ut: any) => {
                       const vacantUnits = ut.units?.filter((u: any) => u.status === "VACANT") || [];
-                      const isFullyOccupied = (ut.units || []).length > 0 && vacantUnits.length === 0;
+                      const isFullyOccupied = vacantUnits.length === 0;
 
                       return (
                         <div key={ut.id} className={`rounded-xl border bg-card overflow-hidden shadow-sm transition-all ${
@@ -555,11 +564,12 @@ export default function ListingDetailPage({ params }: { params: Promise<{ slug: 
                                 {/* Join Waiting List button — active primary button when fully occupied */}
                                 <Button
                                   size="sm"
+                                  variant={isFullyOccupied ? "default" : "outline"}
                                   onClick={() => handleJoinWaitlist(ut.label)}
                                   className={
                                     isFullyOccupied
                                       ? "bg-emerald-700 hover:bg-emerald-800 text-white font-bold px-5 shadow-sm w-full sm:w-auto gap-1.5"
-                                      : "variant-outline text-xs border-border text-muted-foreground hover:text-foreground gap-1.5"
+                                      : "text-xs border-border text-muted-foreground hover:text-foreground gap-1.5 w-full sm:w-auto"
                                   }
                                 >
                                   <Clock className="h-3.5 w-3.5" />
@@ -775,28 +785,16 @@ export default function ListingDetailPage({ params }: { params: Promise<{ slug: 
                 </div>
               </div>
 
-              {landlord?.phone ? (
-                <a href={`tel:${landlord.phone}`}
-                  className="flex items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground hover:bg-primary/90 transition-colors w-full">
-                  <Phone className="h-4 w-4" /> Call {landlord.phone}
-                </a>
-              ) : (
-                <div className="flex items-center justify-center gap-2 rounded-lg bg-muted px-4 py-2.5 text-sm text-muted-foreground w-full">
-                  <Phone className="h-4 w-4" /> No phone listed
-                </div>
-              )}
-
-              {landlord?.phone && (
-                <a href={`https://wa.me/254${landlord.phone.replace(/^0/, "").replace(/\D/g, "")}?text=Hi, I'm interested in ${property.name || property.title}`}
-                  target="_blank" rel="noopener noreferrer"
-                  className="flex items-center justify-center gap-2 rounded-lg border border-primary/20 bg-primary/5 px-4 py-2.5 text-sm font-medium text-primary hover:bg-primary/10 transition-colors w-full">
-                  <MessageSquare className="h-4 w-4" /> Contact via WhatsApp
-                </a>
-              )}
-
-              <p className="text-center text-xs text-muted-foreground">
-                No agent fees — contact directly
-              </p>
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setActiveTab("Map");
+                  window.scrollTo({ top: 600, behavior: "smooth" });
+                }}
+                className="flex items-center justify-center gap-2 rounded-lg border border-primary/20 bg-primary/5 px-4 py-2.5 text-sm font-semibold text-primary hover:bg-primary/10 transition-colors w-full"
+              >
+                <MapPin className="h-4 w-4" /> View on Map
+              </Button>
 
               <div className="border-t border-border pt-4 flex items-center gap-2 text-xs text-muted-foreground">
                 <Calendar className="h-3.5 w-3.5 shrink-0" />

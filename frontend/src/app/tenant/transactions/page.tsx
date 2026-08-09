@@ -19,13 +19,13 @@ export default function TenantTransactionsPage() {
 
   const payments = data?.payments ?? [];
   const stats = data?.stats ?? { totalPaid: 0 };
-  const paidPayments = payments.filter((p) => p.status === "PAID");
+  const paidPayments = payments.filter((p: any) => p.status === "PAID");
 
-  const filtered = paidPayments.filter((p) =>
+  const filtered = paidPayments.filter((p: any) =>
     !search || p.contract?.listing?.title?.toLowerCase().includes(search.toLowerCase())
   );
 
-  const monthlyRentTotal = paidPayments.reduce((sum, p) => sum + p.amount, 0);
+  const monthlyRentTotal = paidPayments.reduce((sum: number, p: any) => sum + p.amount, 0);
 
   return (
     <div className="space-y-6">
@@ -97,9 +97,16 @@ export default function TenantTransactionsPage() {
                   <p className="text-xs text-muted-foreground">Receipt: {payment.mpesaReceiptNo}</p>
                 )}
               </div>
-              <div className="text-right">
-                <p className="font-semibold text-primary">KSh {payment.amount.toLocaleString()}</p>
-                <span className="text-xs font-medium text-primary">RENT</span>
+              <div className="flex items-center gap-4 text-right">
+                <div>
+                  <p className="font-semibold text-primary">KSh {payment.amount.toLocaleString()}</p>
+                  <span className="text-xs font-medium text-primary">RENT</span>
+                </div>
+                <Link href={`/tenant/transactions/${payment.id}`}>
+                  <Button variant="outline" size="sm" className="text-xs">
+                    View
+                  </Button>
+                </Link>
               </div>
             </div>
           ))}

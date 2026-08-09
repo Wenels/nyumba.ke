@@ -6,10 +6,22 @@ import Link from "next/link";
 import { api } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { useState } from "react";
+import { useState, useEffect, Suspense } from "react";
+import { useSearchParams, useRouter, usePathname } from "next/navigation";
 
-export default function TenantsPage() {
-  const [search, setSearch] = useState("");
+function TenantsContent() {
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const pathname = usePathname();
+
+  const [search, setSearch] = useState(searchParams.get("search") || "");
+
+  useEffect(() => {
+    const params = new URLSearchParams();
+    if (search) params.set("search", search);
+    const query = params.toString();
+    router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false });
+  }, [search, pathname, router]);
 
   const { data, isLoading } = useQuery({
     queryKey: ["landlord-bookings"],
@@ -110,6 +122,11 @@ export default function TenantsPage() {
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
+                  <Link href={`/dashboard/tenants/${group.tenant.id}`}>
+                    <Button size="sm" className="gap-1.5">
+                       View Details
+                    </Button>
+                  </Link>
                   <Link href="/inbox">
                     <Button size="sm" variant="outline" className="gap-1.5">
                       <MessageSquare className="h-3.5 w-3.5" /> Message
@@ -122,5 +139,17 @@ export default function TenantsPage() {
         </div>
       )}
     </div>
+  );
+}
+
+export default function TenantsPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex min-h-[60vh] items-center justify-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+      </div>
+    }>
+      <TenantsContent />
+    </Suspense>
   );
 }
