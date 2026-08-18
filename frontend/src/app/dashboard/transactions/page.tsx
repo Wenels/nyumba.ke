@@ -15,7 +15,7 @@ export default function TransactionsPage() {
 
   const payments = paymentsData?.payments ?? [];
   const stats = paymentsData?.stats ?? { totalCollected: 0, thisMonth: 0 };
-  const paidPayments = payments.filter((p) => p.status === "PAID");
+  const paidPayments = payments.filter((p: any) => p.status === "PAID");
 
   return (
     <div className="space-y-6">

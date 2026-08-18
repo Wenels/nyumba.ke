@@ -24,6 +24,7 @@ import {
   X,
 } from "lucide-react";
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
@@ -174,20 +175,28 @@ export default function DashboardLayout({
           }`}
         >
           {!collapsed && (
-            <Link href="/" className="flex items-center gap-2 min-w-0">
-              <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-secondary shrink-0">
-                <Home className="h-4 w-4 text-secondary-foreground" />
-              </span>
-              <span className="font-bold min-w-0 truncate">
+            <Link href="/" className="flex items-center gap-2.5 min-w-0">
+              <Image
+                src="/logo.svg"
+                alt="Nyumba.ke"
+                width={32}
+                height={32}
+                className="rounded-lg shrink-0 object-contain"
+              />
+              <span className="font-bold min-w-0 truncate text-base">
                 nyumba<span className="text-secondary">.ke</span>
               </span>
             </Link>
           )}
           {collapsed && (
             <Link href="/" title="Nyumba.ke">
-              <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-secondary">
-                <Home className="h-4 w-4 text-secondary-foreground" />
-              </span>
+              <Image
+                src="/logo.svg"
+                alt="Nyumba.ke"
+                width={32}
+                height={32}
+                className="rounded-lg shrink-0 object-contain"
+              />
             </Link>
           )}
           <button
@@ -294,10 +303,14 @@ export default function DashboardLayout({
       {mobileOpen && (
         <div className="fixed inset-y-0 left-0 z-50 w-64 bg-background border-r border-border flex flex-col lg:hidden">
           <div className="flex items-center justify-between border-b border-border px-5 py-4">
-            <Link href="/" className="flex items-center gap-2">
-              <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-secondary shrink-0">
-                <Home className="h-4 w-4 text-secondary-foreground" />
-              </span>
+            <Link href="/" className="flex items-center gap-2.5">
+              <Image
+                src="/logo.svg"
+                alt="Nyumba.ke"
+                width={28}
+                height={28}
+                className="rounded-lg shrink-0 object-contain"
+              />
               <span className="text-sm font-bold">
                 nyumba<span className="text-secondary">.ke</span>
               </span>
@@ -503,7 +516,14 @@ export default function DashboardLayout({
               <Menu className="h-5 w-5" />
             </button>
             <Link href="/" className="flex items-center gap-2 font-bold">
-              nyumba<span className="text-secondary">.ke</span>
+              <Image
+                src="/logo.svg"
+                alt="Nyumba.ke"
+                width={26}
+                height={26}
+                className="rounded-lg shrink-0 object-contain"
+              />
+              <span>nyumba<span className="text-secondary">.ke</span></span>
             </Link>
           </div>
           <div className="flex items-center gap-2">

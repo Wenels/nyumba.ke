@@ -1,5 +1,6 @@
-import { Home, X } from "lucide-react";
+import { X } from "lucide-react";
 import Link from "next/link";
+import Image from "next/image";
 
 function InstagramIcon({ className }: { className?: string }) {
   return (
@@ -42,16 +43,18 @@ export function Footer() {
       <div className="mx-auto max-w-6xl">
         <div className="grid grid-cols-1 gap-12 sm:grid-cols-[1.5fr_1fr_1fr]">
           <div>
-            <Link href="/" className="flex items-center gap-2">
-              <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-secondary">
-                <Home className="h-5 w-5 text-secondary-foreground" />
-              </span>
+            <Link href="/" className="flex items-center gap-2.5">
+              <Image
+                src="/logo.svg"
+                alt="Nyumba.ke"
+                width={36}
+                height={36}
+                className="rounded-lg shrink-0 object-contain"
+              />
               <span className="text-lg font-bold text-background">
                 nyumba<span className="text-secondary">.ke</span>
               </span>
             </Link>
-            
-            
           </div>
 
           
