@@ -197,7 +197,7 @@ export default function TenantLayout({
           {!collapsed && (
             <Link href="/" className="flex items-center gap-2 min-w-0">
               <Image
-                src="/logo.png"
+                src="/logo.svg"
                 alt="Nyumba.ke"
                 width={28}
                 height={28}
@@ -216,7 +216,7 @@ export default function TenantLayout({
           {collapsed && (
             <Link href="/" title="Nyumba.ke">
               <Image
-                src="/logo.png"
+                src="/logo.svg"
                 alt="Nyumba.ke"
                 width={28}
                 height={28}
@@ -317,7 +317,7 @@ export default function TenantLayout({
           <div className="flex items-center justify-between border-b border-border px-5 py-4">
             <Link href="/" className="flex items-center gap-2">
               <Image
-                src="/logo.png"
+                src="/logo.svg"
                 alt="Nyumba.ke"
                 width={24}
                 height={24}

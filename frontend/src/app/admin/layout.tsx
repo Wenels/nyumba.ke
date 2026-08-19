@@ -77,7 +77,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       <aside className="hidden w-60 shrink-0 border-r border-background/10 lg:flex lg:flex-col">
         <div className="border-b border-background/10 px-6 py-5">
           <Link href="/" className="flex items-center gap-2">
-            <Image src="/logo.png" alt="Nyumba.ke" width={32} height={32} className="rounded-lg" />
+            <Image src="/logo.svg" alt="Nyumba.ke" width={32} height={32} className="rounded-lg" />
             <span className="font-bold text-background">
               nyumba<span className="text-secondary">.ke</span>
               <span className="ml-1.5 rounded bg-secondary/20 px-1.5 py-0.5 text-xs text-secondary">admin</span>
@@ -115,7 +115,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         <div className="fixed inset-y-0 left-0 z-50 w-64 bg-foreground border-r border-background/10 flex flex-col lg:hidden">
           <div className="flex items-center justify-between border-b border-background/10 px-6 py-5">
             <Link href="/" className="flex items-center gap-2">
-              <Image src="/logo.png" alt="Nyumba.ke" width={28} height={28} className="rounded-lg" />
+              <Image src="/logo.svg" alt="Nyumba.ke" width={28} height={28} className="rounded-lg" />
               <span className="font-bold text-background text-sm">nyumba<span className="text-secondary">.ke</span></span>
             </Link>
             <button onClick={() => setMobileOpen(false)}>

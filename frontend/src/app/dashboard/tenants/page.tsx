@@ -29,9 +29,9 @@ function TenantsContent() {
   });
 
   const bookings = data?.bookings ?? [];
-  const approvedBookings = bookings.filter((b) => ["APPROVED", "COMPLETED"].includes(b.status));
+  const approvedBookings = bookings.filter((b: any) => ["APPROVED", "COMPLETED"].includes(b.status));
 
-  const filteredBookings = approvedBookings.filter((b) =>
+  const filteredBookings = approvedBookings.filter((b: any) =>
     !search ||
     b.tenant?.fullName?.toLowerCase().includes(search.toLowerCase()) ||
     b.tenant?.email?.toLowerCase().includes(search.toLowerCase()) ||
@@ -51,7 +51,7 @@ function TenantsContent() {
 
   const stats = {
     total: uniqueTenantCount,
-    activeLeases: approvedBookings.filter((b) => ["APPROVED", "COMPLETED"].includes(b.status)).length,
+    activeLeases: approvedBookings.filter((b: any) => ["APPROVED", "COMPLETED"].includes(b.status)).length,
     totalRevenue: approvedBookings.reduce((sum: number, b: any) => sum + (b.unitTypeDetails?.monthlyRent || 0), 0),
     properties: [...new Set(approvedBookings.map((b: any) => b.propertyId))].length,
   };

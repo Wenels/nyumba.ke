@@ -44,7 +44,7 @@ export function Navbar() {
         {/* Logo */}
         <Link href="/" className="flex items-center gap-2 shrink-0">
           <Image
-            src="/logo.png"
+            src="/logo.svg"
             alt="Nyumba.ke"
             width={32}
             height={32}
