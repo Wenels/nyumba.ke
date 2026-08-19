@@ -11,15 +11,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
-const TABS = [
-  "ALL",
-  "PENDING",
-  "APPROVED",
-  "UNIT_SELECTED",
-  "CONTRACT_PREPARED",
-  "CONTRACT_CONFIRMED",
-  "COMPLETED",
-  "REJECTED"
+const STATUS_TABS = [
+  { label: "All Requests", value: "ALL" },
+  { label: "Pending Action", value: "PENDING_ACTION" },
+  { label: "Active Leases", value: "ACTIVE_LEASES" },
+  { label: "Declined", value: "REJECTED" },
 ];
 
 function BookingsContent() {
@@ -96,7 +92,14 @@ function BookingsContent() {
   const bookings = data?.bookings ?? [];
   const stats = data?.stats ?? { total: 0, needReview: 0, approved: 0 };
 
-  const filtered = (activeTab === "ALL" ? bookings : bookings.filter((b: any) => b.status === activeTab))
+  const filtered = bookings
+    .filter((b: any) => {
+      if (activeTab === "ALL") return true;
+      if (activeTab === "PENDING_ACTION") return ["PENDING", "NEED_REVIEW", "UNIT_SELECTED"].includes(b.status);
+      if (activeTab === "ACTIVE_LEASES") return ["APPROVED", "CONTRACT_PREPARED", "CONTRACT_CONFIRMED", "COMPLETED"].includes(b.status);
+      if (activeTab === "REJECTED") return ["REJECTED", "CANCELLED"].includes(b.status);
+      return b.status === activeTab;
+    })
     .filter((b: any) => {
       if (!searchQuery) return true;
       const q = searchQuery.toLowerCase();
@@ -222,12 +225,12 @@ function BookingsContent() {
 
       {/* Tabs */}
       <div className="flex gap-2 flex-wrap">
-        {TABS.map((tab) => (
-          <button key={tab} onClick={() => setActiveTab(tab)}
+        {STATUS_TABS.map((tab) => (
+          <button key={tab.value} onClick={() => setActiveTab(tab.value)}
             className={`rounded-full px-4 py-1.5 text-xs font-semibold transition-colors ${
-              activeTab === tab ? "bg-primary text-primary-foreground" : "border border-border hover:border-primary hover:text-primary"
+              activeTab === tab.value ? "bg-primary text-primary-foreground" : "border border-border hover:border-primary hover:text-primary"
             }`}>
-            {tab.replace("_", " ")}
+            {tab.label}
           </button>
         ))}
       </div>

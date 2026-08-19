@@ -506,17 +506,20 @@ model IssuePhoto {
 }
 
 model WaitingList {
-  id          String    @id @default(uuid())
-  propertyId  String
-  tenantId    String
-  unitTypeId  String?
-  status      String    @default("WAITING")
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  id            String    @id @default(uuid())
+  propertyId    String
+  tenantId      String
+  unitTypeId    String?
+  preferredDate DateTime?
+  notes         String?
+  maxBudget     Float?
+  status        String    @default("WAITING")
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
 
-  property    Property  @relation(fields: [propertyId], references: [id], onDelete: Cascade)
-  tenant      User      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  unitType    UnitType? @relation(fields: [unitTypeId], references: [id], onDelete: SetNull)
+  property      Property  @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  tenant        User      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  unitType      UnitType? @relation(fields: [unitTypeId], references: [id], onDelete: SetNull)
 
   @@unique([propertyId, tenantId])
 }

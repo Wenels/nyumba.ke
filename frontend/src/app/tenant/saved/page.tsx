@@ -100,15 +100,27 @@ export default function SavedPage() {
           Failed to load saved listings.
         </div>
       ) : listings.length === 0 ? (
-        <div className="rounded-xl border border-dashed border-border p-16 text-center">
+        <div className="rounded-xl border border-dashed border-border p-12 text-center">
           <HeartOff className="mx-auto h-10 w-10 text-muted-foreground" />
           <p className="mt-4 font-semibold">No saved listings yet</p>
           <p className="mt-1 text-sm text-muted-foreground">
-            Browse listings and save the ones you like.
+            Browse listings and tap the <Heart className="inline h-3.5 w-3.5 text-rose-500" /> heart icon to save them here.
           </p>
+          <div className="mt-5 flex flex-wrap items-center justify-center gap-2">
+            <span className="text-xs text-muted-foreground font-medium">Explore by area:</span>
+            {["Kilimani", "Westlands", "Karen", "Lavington", "Kasarani"].map((area) => (
+              <Link
+                key={area}
+                href={`/browse?area=${encodeURIComponent(area)}`}
+                className="rounded-full border border-border bg-card px-3.5 py-1.5 text-xs font-semibold hover:border-primary hover:text-primary transition-colors"
+              >
+                {area}
+              </Link>
+            ))}
+          </div>
           <Link href="/browse">
             <Button className="mt-5 bg-secondary text-secondary-foreground hover:bg-secondary/90">
-              Browse listings
+              Browse All Listings
             </Button>
           </Link>
         </div>

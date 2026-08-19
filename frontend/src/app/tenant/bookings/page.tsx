@@ -14,16 +14,13 @@ import { useAuth } from "@/app/features/auth/hooks/use-auth";
 import { useSearchParams, useRouter, usePathname } from "next/navigation";
 
 const STATUS_TABS = [
-  "ALL",
-  "PENDING",
-  "APPROVED",
-  "VIEWING_COMPLETED",
-  "UNIT_SELECTED",
-  "CONTRACT_PREPARED",
-  "CONTRACT_CONFIRMED",
-  "COMPLETED",
-  "CANCELLED"
+  { label: "All Bookings", value: "ALL" },
+  { label: "Active", value: "ACTIVE" },
+  { label: "Completed", value: "COMPLETED" },
+  { label: "Cancelled", value: "CANCELLED" },
 ];
+
+const ACTIVE_STATUSES = ["PENDING", "NEED_REVIEW", "APPROVED", "VIEWING_SCHEDULED", "VIEWING_COMPLETED", "UNIT_SELECTED", "CONTRACT_PREPARED", "CONTRACT_CONFIRMED"];
 
 const STAGES = [
   { num: 1, key: "PENDING", label: "1. Unit Type Booking" },
@@ -202,7 +199,11 @@ function BookingsContent() {
   const incompleteBookings = incompleteData?.bookings ?? [];
   const bookings = data?.bookings ?? [];
   const filtered = bookings.filter((b: any) => {
-    const matchTab = activeTab === "ALL" || b.status === activeTab;
+    const matchTab =
+      activeTab === "ALL" ||
+      (activeTab === "ACTIVE" && ACTIVE_STATUSES.includes(b.status)) ||
+      (activeTab === "COMPLETED" && b.status === "COMPLETED") ||
+      (activeTab === "CANCELLED" && b.status === "CANCELLED");
     const matchSearch = !search || b.listing?.title?.toLowerCase().includes(search.toLowerCase());
     return matchTab && matchSearch;
   });
@@ -334,11 +335,11 @@ function BookingsContent() {
 
       <div className="flex gap-2 flex-wrap">
         {STATUS_TABS.map((tab) => (
-          <button key={tab} onClick={() => setActiveTab(tab)}
-            className={`rounded-full px-3 py-1.5 text-xs font-semibold transition-colors ${
-              activeTab === tab ? "bg-primary text-primary-foreground" : "border border-border hover:border-primary hover:text-primary"
+          <button key={tab.value} onClick={() => setActiveTab(tab.value)}
+            className={`rounded-full px-4 py-1.5 text-xs font-semibold transition-colors ${
+              activeTab === tab.value ? "bg-primary text-primary-foreground" : "border border-border hover:border-primary hover:text-primary"
             }`}>
-            {tab.replace("_", " ")}
+            {tab.label}
           </button>
         ))}
       </div>
@@ -465,7 +466,12 @@ function BookingsContent() {
                             </div>
                           </div>
                           <Button className="w-full gap-2 bg-primary text-primary-foreground hover:bg-primary/90 font-semibold"
-                            onClick={() => completeViewingMutation.mutate(booking.id)}
+                            onClick={() => {
+                              const confirmed = confirm(
+                                "Have you physically visited the property and completed the viewing?\n\nClicking OK will advance your booking to the Unit Selection stage."
+                              );
+                              if (confirmed) completeViewingMutation.mutate(booking.id);
+                            }}
                             loading={completeViewingMutation.isPending}>
                             <CheckCircle2 className="h-4 w-4" />
                             Mark Physical Viewing as Completed →

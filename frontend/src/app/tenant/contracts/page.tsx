@@ -219,13 +219,21 @@ function ContractsContent() {
                 <p className="text-sm text-muted-foreground mt-1">Your tenancy contract is active!</p>
               </div>
             ) : paymentStatus === "polling" ? (
-              <div className="rounded-xl border border-border p-6 text-center space-y-4">
+              <div className="rounded-xl border border-border p-6 text-center space-y-3">
                 <div className="mx-auto h-12 w-12 animate-spin rounded-full border-4 border-muted border-t-primary" />
                 <div>
                   <h3 className="font-bold text-lg">Waiting for M-Pesa</h3>
                   <p className="text-sm text-muted-foreground mt-1">Please enter your PIN on your phone to complete the payment.</p>
                 </div>
-                <Button variant="outline" className="w-full mt-4 border-dashed"
+                <div className="rounded-lg bg-amber-50 border border-amber-200 p-3 text-xs text-amber-800">
+                  Didn&apos;t receive the M-Pesa prompt? Check that your phone is on and has network, then tap below to resend.
+                </div>
+                <Button variant="outline" className="w-full gap-2 border-primary/30 text-primary"
+                  onClick={() => { setPaymentStatus("idle"); }}
+                >
+                  ↺ Resend M-Pesa Prompt
+                </Button>
+                <Button variant="outline" className="w-full mt-1 border-dashed text-xs text-muted-foreground"
                   onClick={() => simulatePaymentMutation.mutate()} loading={simulatePaymentMutation.isPending}>
                   Simulate Payment Success (Dev Only)
                 </Button>
@@ -304,10 +312,18 @@ function ContractsContent() {
           {[...Array(3)].map((_, i) => <div key={i} className="h-32 animate-pulse rounded-xl bg-muted" />)}
         </div>
       ) : filtered.length === 0 ? (
-        <div className="rounded-xl border border-dashed border-border p-12 text-center">
-          <FileText className="mx-auto h-10 w-10 text-muted-foreground" />
-          <p className="mt-3 font-semibold">No contracts found</p>
-          <p className="mt-1 text-sm text-muted-foreground">Your tenancy agreements will appear here once prepared by the landlord</p>
+        <div className="rounded-xl border border-dashed border-primary/30 bg-primary/5 p-12 text-center">
+          <FileText className="mx-auto h-12 w-12 text-primary/60" />
+          <p className="mt-3 text-base font-bold text-foreground">No active tenancy contracts found</p>
+          <p className="mt-1 text-sm text-muted-foreground max-w-md mx-auto">
+            Your signed leases and property contracts will automatically appear here once approved by a landlord.
+          </p>
+          <Link
+            href="/browse"
+            className="mt-4 inline-flex items-center gap-2 rounded-xl bg-primary px-5 py-2.5 text-xs font-bold text-primary-foreground hover:bg-primary/90 transition-all shadow-md"
+          >
+            Browse Available Houses to Rent →
+          </Link>
         </div>
       ) : (
         <div className="space-y-4">
@@ -347,10 +363,13 @@ function ContractsContent() {
                 <div className="shrink-0 flex items-center gap-2">
                   {/* Stage 6 Action: Review & Sign Contract */}
                   {contract.status === "PENDING" && !contract.signedByTenant && (
-                    <Button size="sm" onClick={() => setReviewingContract(contract)}
-                      className="gap-1.5 bg-primary text-primary-foreground hover:bg-primary/90 font-semibold">
-                      <PenLine className="h-4 w-4" /> Verify & Sign Contract (Stage 6)
-                    </Button>
+                    <div className="w-full sm:w-auto">
+                      <div className="mb-1 text-[10px] font-bold uppercase tracking-widest text-amber-600 text-center sm:text-right">⚡ Action Required</div>
+                      <Button size="sm" onClick={() => setReviewingContract(contract)}
+                        className="gap-1.5 bg-primary text-primary-foreground hover:bg-primary/90 font-bold shadow-md">
+                        <PenLine className="h-4 w-4" /> Review & Sign Contract →
+                      </Button>
+                    </div>
                   )}
 
                   {/* Stage 7 Action: Proceed to Payment */}

@@ -9,6 +9,7 @@ import {
   reportListing,
   joinWaitlist,
   getLandlordWaitlist,
+  updateWaitlistStatus,
   getLandlordPropertyDetail,
 } from "../controllers/listingsController.js";
 import { requireAuth, requireRole } from "../middleware/auth.js";
@@ -18,6 +19,7 @@ const router = Router();
 router.get("/", getListings);
 router.get("/my", requireAuth, getMyListings);
 router.get("/waitlist/landlord", requireAuth, requireRole("LANDLORD", "ADMIN"), getLandlordWaitlist);
+router.patch("/waitlist/:id/status", requireAuth, requireRole("LANDLORD", "ADMIN"), updateWaitlistStatus);
 router.get("/landlord/:slug", requireAuth, requireRole("LANDLORD", "ADMIN"), getLandlordPropertyDetail);
 router.get("/:slug", getListing);
 router.post("/", requireRole("LANDLORD", "ADMIN"), createListing);

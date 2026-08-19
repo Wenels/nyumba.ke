@@ -1,6 +1,6 @@
 "use client";
 
-import { use, useState } from "react";
+import { use, useState, useRef } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -9,13 +9,14 @@ import {
   ArrowLeft, MapPin, BedDouble, Bath, ShieldCheck, Heart,
   Phone, MessageSquare, Flag, Calendar, ChevronLeft, ChevronRight,
   CheckCircle2, XCircle, Home, Users, DollarSign, ImageOff,
-  Building2, Sparkles, Key, Check, Clock
+  Building2, Sparkles, Key, Check, Clock, Share2
 } from "lucide-react";
 import Image from "next/image";
 import { api } from "@/lib/api";
 import { useAuth } from "@/app/features/auth/hooks/use-auth";
 import { Button } from "@/components/ui/button";
 import { MapView } from "@/app/features/listings/components/map-view";
+import { ProductTour, ProductTourTrigger, DISCOVERY_TOUR_STEPS } from "@/components/ui/product-tour";
 
 interface Amenity {
   id: string;
@@ -145,15 +146,36 @@ function ReportModal({ listingId, onClose }: { listingId: string; onClose: () =>
 }
 
 // Waitlist modal
-function WaitlistModal({ propertyId, propertyName, categoryLabel, onClose }: { propertyId: string; propertyName: string; categoryLabel: string; onClose: () => void }) {
+function WaitlistModal({
+  propertyId,
+  propertyName,
+  categoryLabel,
+  unitTypes = [],
+  onClose,
+}: {
+  propertyId: string;
+  propertyName: string;
+  categoryLabel: string;
+  unitTypes?: any[];
+  onClose: () => void;
+}) {
   const { user } = useAuth();
+  const [selectedUnitType, setSelectedUnitType] = useState(categoryLabel || "All Categories");
   const [preferredDate, setPreferredDate] = useState("");
+  const [maxBudget, setMaxBudget] = useState("");
   const [notes, setNotes] = useState("");
+
   const mutation = useMutation({
-    mutationFn: () => api.post(`/api/listings/${propertyId}/waitlist`, { categoryLabel, preferredDate, notes }),
+    mutationFn: () =>
+      api.post(`/api/listings/${propertyId}/waitlist`, {
+        categoryLabel: selectedUnitType,
+        preferredDate,
+        maxBudget,
+        notes,
+      }),
     onSuccess: () => {
       toast.success("Joined Waiting List!", {
-        description: `You will be notified as soon as a ${categoryLabel} unit becomes available at ${propertyName}.`,
+        description: `You will be notified as soon as a matching unit becomes available at ${propertyName}.`,
       });
       onClose();
     },
@@ -162,11 +184,11 @@ function WaitlistModal({ propertyId, propertyName, categoryLabel, onClose }: { p
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-foreground/50 px-4">
-      <div className="w-full max-w-md rounded-2xl bg-background p-6 shadow-xl space-y-4">
+      <div className="w-full max-w-md rounded-2xl bg-background p-6 shadow-xl space-y-4 max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between border-b border-border pb-3">
           <div>
             <h3 className="font-bold text-lg text-foreground">Join Waiting List</h3>
-            <p className="text-xs text-muted-foreground mt-0.5">{propertyName} • <strong>{categoryLabel}</strong></p>
+            <p className="text-xs text-muted-foreground mt-0.5">{propertyName}</p>
           </div>
           <button onClick={onClose} className="text-muted-foreground hover:text-foreground text-sm font-semibold">✕</button>
         </div>
@@ -174,35 +196,76 @@ function WaitlistModal({ propertyId, propertyName, categoryLabel, onClose }: { p
         <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-3.5 flex items-start gap-3">
           <span className="text-xl shrink-0">🔔</span>
           <div className="text-xs text-emerald-800">
-            <p className="font-semibold text-emerald-900 mb-0.5">Category Currently Fully Occupied</p>
-            Join the waitlist to receive an alert as soon as a unit becomes available.
+            <p className="font-semibold text-emerald-900 mb-0.5">Priority Notification</p>
+            Submit your unit & budget preferences. Landlord will review your entry and contact you first when a unit frees up.
           </div>
         </div>
 
-        <div className="space-y-3 text-sm">
+        <div className="space-y-3.5 text-sm">
           <div>
-            <label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Your Contact</label>
+            <label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Contact Info</label>
             <p className="font-medium mt-1 text-foreground">{user?.fullName} ({user?.email})</p>
           </div>
+
           <div>
-            <label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Target Move-in Date (Optional)</label>
-            <input type="date" value={preferredDate} onChange={(e) => setPreferredDate(e.target.value)}
-              min={new Date().toISOString().split("T")[0]}
-              className="mt-1.5 w-full rounded-md border border-input bg-background px-3 py-2 text-sm" />
+            <label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Preferred Unit Type *</label>
+            <select
+              value={selectedUnitType}
+              onChange={(e) => setSelectedUnitType(e.target.value)}
+              className="mt-1.5 w-full rounded-md border border-input bg-background px-3 py-2 text-sm font-medium"
+            >
+              <option value="All Categories">Any Unit Type</option>
+              {unitTypes.map((ut: any) => (
+                <option key={ut.id} value={ut.label}>
+                  {ut.label} (Ksh {ut.monthlyRent?.toLocaleString()}/mo)
+                </option>
+              ))}
+            </select>
           </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Move-in Date</label>
+              <input
+                type="date"
+                value={preferredDate}
+                onChange={(e) => setPreferredDate(e.target.value)}
+                min={new Date().toISOString().split("T")[0]}
+                className="mt-1.5 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+              />
+            </div>
+            <div>
+              <label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Max Budget (Ksh)</label>
+              <input
+                type="number"
+                value={maxBudget}
+                onChange={(e) => setMaxBudget(e.target.value)}
+                placeholder="E.g. 25000"
+                className="mt-1.5 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+              />
+            </div>
+          </div>
+
           <div>
-            <label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Additional Preferences (Optional)</label>
-            <textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={2}
-              placeholder="E.g., preferred floor, balcony, etc..."
-              className="mt-1.5 w-full rounded-md border border-input bg-background px-3 py-2 text-sm resize-none" />
+            <label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Specific Preferences & Notes</label>
+            <textarea
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              rows={2.5}
+              placeholder="E.g., high floor, balcony, parking spot, ground floor..."
+              className="mt-1.5 w-full rounded-md border border-input bg-background px-3 py-2 text-sm resize-none"
+            />
           </div>
         </div>
 
         <div className="pt-2 flex gap-3">
           <Button variant="outline" className="flex-1" onClick={onClose}>Cancel</Button>
-          <Button className="flex-1 bg-emerald-700 text-white hover:bg-emerald-800 font-semibold"
-            loading={mutation.isPending} onClick={() => mutation.mutate()}>
-            Confirm Waitlist Entry →
+          <Button
+            className="flex-1 bg-emerald-700 text-white hover:bg-emerald-800 font-semibold"
+            loading={mutation.isPending}
+            onClick={() => mutation.mutate()}
+          >
+            Submit Preferences →
           </Button>
         </div>
       </div>
@@ -217,13 +280,15 @@ export default function ListingDetailPage({ params }: { params: Promise<{ slug: 
   const [activeTab, setActiveTab] = useState("Overview");
   const [showReport, setShowReport] = useState(false);
   const [waitlistCategory, setWaitlistCategory] = useState<string | null>(null);
+  const [tourOpen, setTourOpen] = useState(false);
+  const tabsSectionRef = useRef<HTMLDivElement>(null);
 
   function handleJoinWaitlist(categoryName: string) {
     if (!user) {
       toast.error("Please sign in to join the waiting list", {
         action: {
           label: "Sign In",
-          onClick: () => router.push("/login"),
+          onClick: () => router.push(`/login?redirect=/listings/${slug}`),
         },
       });
       return;
@@ -281,6 +346,22 @@ export default function ListingDetailPage({ params }: { params: Promise<{ slug: 
   const confirmedAmenities = amenities.filter((a) => a.available).length;
   const notFoundAmenities = amenities.filter((a) => !a.available).length;
 
+  // For conditional tab badges
+  const hasAmenities = amenities.length > 0;
+  const hasCondition = !!condition;
+  const hasInspectionPhotos =
+    (property.photos?.length ?? 0) > 0 ||
+    unitTypes.some((ut: any) => (ut.photos?.length ?? 0) > 0 || ut.units?.some((u: any) => (u.photos?.length ?? 0) > 0));
+
+  function handleShare() {
+    const url = window.location.href;
+    if (navigator.share) {
+      navigator.share({ title: property.name || property.title, url }).catch(() => {});
+    } else {
+      navigator.clipboard.writeText(url).then(() => toast.success("Link copied to clipboard!"));
+    }
+  }
+
   return (
     <div className="min-h-screen bg-background">
       {showReport && <ReportModal listingId={property.id} onClose={() => setShowReport(false)} />}
@@ -289,6 +370,7 @@ export default function ListingDetailPage({ params }: { params: Promise<{ slug: 
           propertyId={property.id}
           propertyName={property.name || property.title}
           categoryLabel={waitlistCategory}
+          unitTypes={property.unitTypes}
           onClose={() => setWaitlistCategory(null)}
         />
       )}
@@ -311,7 +393,14 @@ export default function ListingDetailPage({ params }: { params: Promise<{ slug: 
           </Link>
           <div className="flex items-center gap-2">
             {user && <SaveButton listing={property} />}
+            <button
+              onClick={handleShare}
+              title="Share this listing"
+              className="flex h-10 w-10 items-center justify-center rounded-full border border-border hover:border-primary hover:text-primary transition-colors">
+              <Share2 className="h-4 w-4" />
+            </button>
             <button onClick={() => setShowReport(true)}
+              title="Report listing"
               className="flex h-10 w-10 items-center justify-center rounded-full border border-border hover:border-destructive hover:text-destructive transition-colors">
               <Flag className="h-4 w-4" />
             </button>
@@ -319,7 +408,7 @@ export default function ListingDetailPage({ params }: { params: Promise<{ slug: 
         </div>
 
         {/* Property Header */}
-        <div className="mb-6">
+        <div data-tour="property-title" className="mb-6">
           <div className="flex items-start justify-between gap-4 flex-wrap">
             <div>
               <div className="flex items-center gap-2 flex-wrap">
@@ -371,7 +460,7 @@ export default function ListingDetailPage({ params }: { params: Promise<{ slug: 
             </div>
 
             {/* Tabs */}
-            <div className="border-b border-border">
+            <div ref={tabsSectionRef} className="border-b border-border">
               <div className="flex gap-0 overflow-x-auto">
                 {TABS.map((tab) => (
                   <button key={tab} onClick={() => setActiveTab(tab)}
@@ -386,17 +475,17 @@ export default function ListingDetailPage({ params }: { params: Promise<{ slug: 
                         {unitTypes.length}
                       </span>
                     )}
-                    {tab === "Inspection Photos" && (
+                    {tab === "Inspection Photos" && hasInspectionPhotos && (
                       <span className="flex h-4 w-4 items-center justify-center rounded-full bg-emerald-500 text-[10px] font-bold text-white">
                         ✓
                       </span>
                     )}
-                    {tab === "Amenities" && (
+                    {tab === "Amenities" && hasAmenities && (
                       <span className="flex h-4 w-4 items-center justify-center rounded-full bg-emerald-500 text-[10px] font-bold text-white">
                         ✓
                       </span>
                     )}
-                    {tab === "Condition Report" && (
+                    {tab === "Condition Report" && hasCondition && (
                       <span className="flex h-4 w-4 items-center justify-center rounded-full bg-emerald-500 text-[10px] font-bold text-white">
                         ✓
                       </span>
@@ -542,39 +631,46 @@ export default function ListingDetailPage({ params }: { params: Promise<{ slug: 
                               </span>
 
                               <div className="flex items-center gap-2.5 w-full sm:w-auto">
-                                {/* Booking button — inactive when fully occupied */}
                                 {isFullyOccupied ? (
-                                  <Button size="sm" disabled variant="outline" className="opacity-50 cursor-not-allowed bg-muted text-muted-foreground font-semibold px-4 w-full sm:w-auto">
-                                    Book {ut.label} (Unavailable)
-                                  </Button>
-                                ) : user ? (
-                                  <Link href={`/listings/${property.slug}/book?unitTypeId=${ut.id}`}>
-                                    <Button size="sm" className="bg-primary text-primary-foreground hover:bg-primary/90 font-semibold px-5 w-full sm:w-auto">
-                                      Book {ut.label}
+                                  /* Fully occupied: No Book button, only Waitlist */
+                                  <>
+                                    <span className="rounded-full border border-muted-foreground/20 bg-muted px-3 py-1.5 text-xs font-semibold text-muted-foreground">
+                                      No Vacancies
+                                    </span>
+                                    <Button
+                                      size="sm"
+                                      onClick={() => handleJoinWaitlist(ut.label)}
+                                      className="bg-emerald-700 hover:bg-emerald-800 text-white font-bold px-5 shadow-sm w-full sm:w-auto gap-1.5"
+                                    >
+                                      <Clock className="h-3.5 w-3.5" /> Join Waiting List →
                                     </Button>
-                                  </Link>
+                                  </>
                                 ) : (
-                                  <Link href="/login">
-                                    <Button size="sm" className="bg-primary text-primary-foreground hover:bg-primary/90 font-semibold px-5 w-full sm:w-auto">
-                                      Sign in to Book
+                                  /* Has vacancies: Book button + secondary Waitlist */
+                                  <>
+                                    {user ? (
+                                      <Link href={`/listings/${property.slug}/book?unitTypeId=${ut.id}`}>
+                                        <Button size="sm" className="bg-primary text-primary-foreground hover:bg-primary/90 font-bold px-5">
+                                          Book {ut.label} →
+                                        </Button>
+                                      </Link>
+                                    ) : (
+                                      <Link href={`/login?redirect=/listings/${slug}`}>
+                                        <Button size="sm" className="bg-primary text-primary-foreground hover:bg-primary/90 font-bold px-5">
+                                          Sign in to Book
+                                        </Button>
+                                      </Link>
+                                    )}
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      onClick={() => handleJoinWaitlist(ut.label)}
+                                      className="text-xs border-border text-muted-foreground hover:text-foreground gap-1.5"
+                                    >
+                                      <Clock className="h-3.5 w-3.5" /> Join Waitlist
                                     </Button>
-                                  </Link>
+                                  </>
                                 )}
-
-                                {/* Join Waiting List button — active primary button when fully occupied */}
-                                <Button
-                                  size="sm"
-                                  variant={isFullyOccupied ? "default" : "outline"}
-                                  onClick={() => handleJoinWaitlist(ut.label)}
-                                  className={
-                                    isFullyOccupied
-                                      ? "bg-emerald-700 hover:bg-emerald-800 text-white font-bold px-5 shadow-sm w-full sm:w-auto gap-1.5"
-                                      : "text-xs border-border text-muted-foreground hover:text-foreground gap-1.5 w-full sm:w-auto"
-                                  }
-                                >
-                                  <Clock className="h-3.5 w-3.5" />
-                                  Join Waiting List
-                                </Button>
                               </div>
                             </div>
                           </div>
@@ -744,7 +840,7 @@ export default function ListingDetailPage({ params }: { params: Promise<{ slug: 
           </div>
 
           {/* Right sidebar — Landlord card */}
-          <div className="space-y-4">
+          <div data-tour="sidebar-cta" className="space-y-4">
             {/* Book Now / Waitlist CTA */}
             {totalVacantCount > 0 ? (
               user ? (
@@ -754,7 +850,7 @@ export default function ListingDetailPage({ params }: { params: Promise<{ slug: 
                   </Button>
                 </Link>
               ) : (
-                <Link href="/login">
+                <Link href={`/login?redirect=/listings/${slug}`}>
                   <Button className="w-full bg-primary text-primary-foreground hover:bg-primary/90 h-12 text-base font-semibold">
                     Sign in to Book
                   </Button>
@@ -789,12 +885,22 @@ export default function ListingDetailPage({ params }: { params: Promise<{ slug: 
                 variant="outline"
                 onClick={() => {
                   setActiveTab("Map");
-                  window.scrollTo({ top: 600, behavior: "smooth" });
+                  tabsSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
                 }}
                 className="flex items-center justify-center gap-2 rounded-lg border border-primary/20 bg-primary/5 px-4 py-2.5 text-sm font-semibold text-primary hover:bg-primary/10 transition-colors w-full"
               >
                 <MapPin className="h-4 w-4" /> View on Map
               </Button>
+
+              {/* Message Landlord shortcut */}
+              <Link href="/tenant/inbox">
+                <Button
+                  variant="outline"
+                  className="flex items-center justify-center gap-2 rounded-lg border border-border px-4 py-2.5 text-sm font-semibold hover:border-primary/40 hover:text-primary transition-colors w-full"
+                >
+                  <MessageSquare className="h-4 w-4 text-primary" /> Message Landlord
+                </Button>
+              </Link>
 
               <div className="border-t border-border pt-4 flex items-center gap-2 text-xs text-muted-foreground">
                 <Calendar className="h-3.5 w-3.5 shrink-0" />
@@ -821,6 +927,42 @@ export default function ListingDetailPage({ params }: { params: Promise<{ slug: 
           </div>
         </div>
       </div>
+
+      {/* ── Sticky Mobile Bottom CTA Bar ── */}
+      <div className="lg:hidden fixed bottom-0 left-0 right-0 z-40 border-t border-border bg-background/95 backdrop-blur-md px-4 py-3 flex items-center gap-3 shadow-2xl">
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-bold text-foreground truncate">{property.name || property.title}</p>
+          <p className="text-xs text-secondary font-semibold">
+            from KSh {(property.minRent || property.price || 0).toLocaleString()}/mo
+          </p>
+        </div>
+        {totalVacantCount > 0 ? (
+          user ? (
+            <Link href={`/listings/${property.slug}/book`}>
+              <Button className="bg-primary text-primary-foreground hover:bg-primary/90 font-bold px-6 shrink-0">
+                Book Now
+              </Button>
+            </Link>
+          ) : (
+            <Link href={`/login?redirect=/listings/${slug}`}>
+              <Button className="bg-primary text-primary-foreground hover:bg-primary/90 font-bold px-6 shrink-0">
+                Sign In to Book
+              </Button>
+            </Link>
+          )
+        ) : (
+          <Button
+            onClick={() => handleJoinWaitlist("All Categories")}
+            className="bg-emerald-700 text-white hover:bg-emerald-800 font-bold px-6 gap-2 shrink-0"
+          >
+            <Clock className="h-4 w-4" /> Join Waitlist
+          </Button>
+        )}
+      </div>
+
+      {/* Scenario C: Property Discovery Tour */}
+      <ProductTour isOpen={tourOpen} onClose={() => setTourOpen(false)} steps={DISCOVERY_TOUR_STEPS} />
+      <ProductTourTrigger onClick={() => setTourOpen(true)} label="Listing Tour 🚀" />
     </div>
   );
 }

@@ -31,10 +31,10 @@ export function Navbar() {
   }, []);
 
   const headerClass = scrolled
-    ? "bg-foreground/90 backdrop-blur-md border-b border-white/10 shadow-lg"
-    : "bg-transparent border-b border-transparent";
+    ? "bg-slate-950/95 backdrop-blur-md border-b border-slate-800/80 shadow-xl"
+    : "bg-slate-950/90 backdrop-blur-md border-b border-slate-800/50 shadow-md";
 
-  const textClass = "text-white/90 hover:text-white";
+  const textClass = "text-white/90 hover:text-white font-semibold";
 
   return (
     <header
@@ -63,13 +63,15 @@ export function Navbar() {
           <Link href="/map" className={`transition-colors ${textClass}`}>
             Map
           </Link>
-          <Link href="/#how-it-works" className={`transition-colors ${textClass}`}>
+          <Link href="/how-it-works" className={`transition-colors ${textClass}`}>
             How It Works
+          </Link>
+          <Link href="/contact" className={`transition-colors ${textClass}`}>
+            Contact Us
           </Link>
           <Link href="/register?role=LANDLORD" className={`transition-colors ${textClass}`}>
             List Your Property
           </Link>
-
         </nav>
 
         {/* Desktop auth */}
@@ -151,7 +153,7 @@ export function Navbar() {
 
       {/* Mobile menu */}
       {open && (
-        <div className="border-t border-white/10 bg-foreground/95 px-6 py-4 backdrop-blur-md sm:hidden">
+        <div className="border-t border-slate-800/80 bg-slate-950/98 px-6 py-4 backdrop-blur-md sm:hidden">
           <nav className="flex flex-col gap-1">
             <Link
               href="/browse"
@@ -168,11 +170,18 @@ export function Navbar() {
               <Map className="h-4 w-4" /> Map
             </Link>
             <Link
-              href="/#how-it-works"
+              href="/how-it-works"
               onClick={() => setOpen(false)}
               className="flex items-center gap-3 rounded-lg px-3 py-3 text-sm font-medium text-white/80 hover:bg-white/10 hover:text-white transition-colors"
             >
               How It Works
+            </Link>
+            <Link
+              href="/contact"
+              onClick={() => setOpen(false)}
+              className="flex items-center gap-3 rounded-lg px-3 py-3 text-sm font-medium text-white/80 hover:bg-white/10 hover:text-white transition-colors"
+            >
+              Contact Us
             </Link>
             <Link
               href="/register?role=LANDLORD"

@@ -208,7 +208,7 @@ function IssuesContent() {
                 <div className="flex items-center gap-2 shrink-0">
                   {issue.tenant && (
                     <Link href="/inbox">
-                      <Button variant="outline" size="sm" className="gap-1.5 text-xs">
+                      <Button variant="outline" size="sm" className="gap-1.5 text-xs font-semibold border-primary/30 text-primary hover:bg-primary/5">
                         <MessageSquare className="h-3.5 w-3.5" /> Message Tenant
                       </Button>
                     </Link>
@@ -218,9 +218,9 @@ function IssuesContent() {
                       size="sm"
                       loading={updateMutation.isPending}
                       onClick={() => updateMutation.mutate({ id: issue.id, status: "IN_PROGRESS" })}
-                      className="bg-primary text-primary-foreground hover:bg-primary/90 text-xs"
+                      className="bg-primary text-primary-foreground hover:bg-primary/90 text-xs font-bold"
                     >
-                      Start Work
+                      Start Repair Work →
                     </Button>
                   )}
                   {issue.status === "IN_PROGRESS" && (
@@ -228,9 +228,9 @@ function IssuesContent() {
                       size="sm"
                       loading={updateMutation.isPending}
                       onClick={() => updateMutation.mutate({ id: issue.id, status: "RESOLVED" })}
-                      className="bg-primary text-primary-foreground hover:bg-primary/90 text-xs"
+                      className="bg-emerald-600 text-white hover:bg-emerald-700 text-xs font-bold"
                     >
-                      Mark Resolved
+                      ✓ Mark Issue Resolved
                     </Button>
                   )}
                 </div>

@@ -13,9 +13,11 @@ import {
   CheckCircle2,
   Home,
 } from "lucide-react";
+import { useState } from "react";
 import { useAuth } from "@/app/features/auth/hooks/use-auth";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "@/lib/api";
+import { ProductTour, ProductTourTrigger, LANDLORD_TOUR_STEPS } from "@/components/ui/product-tour";
 import type { Listing } from "@/app/features/listings/hooks/use-listings";
 
 interface MyListingsResponse {
@@ -50,6 +52,7 @@ interface IssuesResponse {
 
 export default function DashboardPage() {
   const { user } = useAuth();
+  const [tourOpen, setTourOpen] = useState(false);
 
   const { data: listingsData } = useQuery<MyListingsResponse>({
     queryKey: ["my-listings"],
@@ -124,7 +127,7 @@ export default function DashboardPage() {
       )}
 
       {/* Stats cards */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div data-tour="landlord-stats-grid" className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {/* Total Properties */}
         <div className="rounded-xl border border-border bg-card p-5">
           <div className="flex items-center justify-between">
@@ -156,7 +159,7 @@ export default function DashboardPage() {
         </div>
 
         {/* Active Tenants */}
-        <div className="rounded-xl border border-border bg-card p-5">
+        <Link href="/dashboard/tenants" className="rounded-xl border border-border bg-card p-5 hover:border-primary/40 transition-colors block">
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Active Tenants</span>
             <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-muted">
@@ -166,13 +169,13 @@ export default function DashboardPage() {
           <p className="mt-3 text-3xl font-bold">
             {activeTenantCount}
           </p>
-          <p className="mt-1 text-xs text-muted-foreground">
-            {occupancyRate}% Occupancy rate
+          <p className="mt-1 flex items-center gap-1 text-xs text-primary font-medium">
+            <ArrowRight className="h-3 w-3" /> {occupancyRate}% Occupancy rate
           </p>
-        </div>
+        </Link>
 
         {/* Open Issues */}
-        <div className="rounded-xl border border-border bg-card p-5">
+        <Link href="/dashboard/issues" className="rounded-xl border border-border bg-card p-5 hover:border-secondary/40 transition-colors block">
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Open Issues</span>
             <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-muted">
@@ -180,10 +183,10 @@ export default function DashboardPage() {
             </div>
           </div>
           <p className="mt-3 text-3xl font-bold">{openIssues.length}</p>
-          <p className={`mt-1 text-xs ${openIssues.length === 0 ? "text-primary" : "text-secondary"}`}>
-            {openIssues.length === 0 ? "All clear" : `${openIssues.length} need attention`}
+          <p className={`mt-1 flex items-center gap-1 text-xs font-medium ${openIssues.length === 0 ? "text-primary" : "text-secondary"}`}>
+            <ArrowRight className="h-3 w-3" /> {openIssues.length === 0 ? "All clear" : `${openIssues.length} need attention`}
           </p>
-        </div>
+        </Link>
       </div>
 
       {/* Main content grid */}
@@ -191,7 +194,7 @@ export default function DashboardPage() {
         {/* Left — Bookings + Issues */}
         <div className="space-y-6">
           {/* Bookings requiring approval */}
-          <div className="rounded-xl border border-border bg-card overflow-hidden">
+          <div data-tour="landlord-bookings-card" className="rounded-xl border border-border bg-card overflow-hidden">
             <div className="flex items-center justify-between border-b border-border bg-primary/5 px-5 py-4">
               <div className="flex items-center gap-3">
                 <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10">
@@ -233,7 +236,7 @@ export default function DashboardPage() {
           </div>
 
           {/* Recent tenant issues */}
-          <div className="rounded-xl border border-border bg-card overflow-hidden">
+          <div data-tour="landlord-issues-card" className="rounded-xl border border-border bg-card overflow-hidden">
             <div className="flex items-center justify-between border-b border-border bg-secondary/5 px-5 py-4">
               <div className="flex items-center gap-3">
                 <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-secondary/10">
@@ -359,6 +362,10 @@ export default function DashboardPage() {
           </div>
         </div>
       </div>
+
+      {/* Scenario B: Landlord Dashboard Tour */}
+      <ProductTour isOpen={tourOpen} onClose={() => setTourOpen(false)} steps={LANDLORD_TOUR_STEPS} />
+      <ProductTourTrigger onClick={() => setTourOpen(true)} label="Landlord Tour 🚀" />
     </div>
   );
 }
