@@ -472,24 +472,53 @@ export async function reportProperty(req, res) {
 }
 
 export async function joinWaitlist(req, res) {
-  const { categoryLabel, unitTypeId } = req.body;
+  const { categoryLabel, unitTypeId, preferredDate, notes, maxBudget } = req.body;
   const property = await prisma.property.findUnique({
     where: { id: req.params.id },
+    include: { unitTypes: true },
   });
 
   if (!property) return res.status(404).json({ error: "Property not found" });
 
-  await prisma.waitingList.create({
-    data: {
+  let resolvedUnitTypeId = unitTypeId || null;
+  if (!resolvedUnitTypeId && categoryLabel && categoryLabel !== "All Categories") {
+    const matched = property.unitTypes.find(
+      (u) => u.label.toLowerCase() === categoryLabel.toLowerCase()
+    );
+    if (matched) resolvedUnitTypeId = matched.id;
+  }
+
+  const parsedDate = preferredDate ? new Date(preferredDate) : null;
+  const parsedBudget = maxBudget ? parseFloat(maxBudget) : null;
+
+  const item = await prisma.waitingList.upsert({
+    where: {
+      propertyId_tenantId: {
+        propertyId: property.id,
+        tenantId: req.session.userId,
+      },
+    },
+    update: {
+      unitTypeId: resolvedUnitTypeId,
+      preferredDate: parsedDate,
+      notes: notes || null,
+      maxBudget: parsedBudget,
+      status: "WAITING",
+    },
+    create: {
       propertyId: property.id,
       tenantId: req.session.userId,
-      unitTypeId: unitTypeId || null,
+      unitTypeId: resolvedUnitTypeId,
+      preferredDate: parsedDate,
+      notes: notes || null,
+      maxBudget: parsedBudget,
       status: "WAITING",
     },
   });
 
   res.status(200).json({
     ok: true,
+    item,
     message: `Successfully joined waiting list for ${categoryLabel || "this property"}.`,
   });
 }
@@ -507,10 +536,32 @@ export async function getLandlordWaitlist(req, res) {
     include: {
       property: { select: { id: true, name: true } },
       tenant: { select: { id: true, fullName: true, email: true, phone: true } },
-      unitType: { select: { id: true, label: true } },
+      unitType: { select: { id: true, label: true, monthlyRent: true } },
     },
     orderBy: { createdAt: "desc" },
   });
 
   res.json({ waitlist });
+}
+
+export async function updateWaitlistStatus(req, res) {
+  const { id } = req.params;
+  const { status } = req.body;
+
+  const item = await prisma.waitingList.findUnique({
+    where: { id },
+    include: { property: true },
+  });
+
+  if (!item) return res.status(404).json({ error: "Waitlist entry not found" });
+  if (item.property.landlordId !== req.session.userId && !req.session.isAdmin) {
+    return res.status(403).json({ error: "Forbidden" });
+  }
+
+  const updated = await prisma.waitingList.update({
+    where: { id },
+    data: { status },
+  });
+
+  res.json({ item: updated });
 }

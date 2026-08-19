@@ -57,18 +57,46 @@ export function useAuth() {
     },
   });
 
-  // Login mutation
+  // Login mutation with strict portal role enforcement
   const loginMutation = useMutation({
     mutationFn: async (credentials: Record<string, unknown>) => {
+      const { expectedRole, ...loginPayload } = credentials;
       const response = (await api.post(
         "/api/auth/login",
-        credentials,
+        loginPayload,
       )) as AuthResponse;
-      return response.user;
+
+      const newUser = response.user;
+
+      // Strict role verification based on expected portal role
+      if (expectedRole === "LANDLORD" && newUser.role !== "LANDLORD" && newUser.role !== "ADMIN") {
+        await api.post("/api/auth/logout").catch(() => {});
+        throw new ApiError(403, {
+          error: "Access Denied: This is the Landlord Login portal. Your account is registered as a Tenant.",
+        });
+      }
+
+      if (expectedRole === "TENANT" && newUser.role !== "TENANT") {
+        await api.post("/api/auth/logout").catch(() => {});
+        throw new ApiError(403, {
+          error: "Access Denied: This is the Tenant Login portal. Your account is registered as a Landlord.",
+        });
+      }
+
+      return newUser;
     },
-    onSuccess: (newUser) => {
+    onSuccess: (newUser, variables) => {
       // Optimistically update the cache
       queryClient.setQueryData(["auth-user"], newUser);
+
+      // Check if custom redirect URL was requested (e.g. return to property listing)
+      const targetRedirect = variables?.redirectTo as string | undefined;
+      if (targetRedirect && targetRedirect.startsWith("/")) {
+        router.push(targetRedirect);
+        router.refresh();
+        return;
+      }
+
       // Redirect to the appropriate dashboard based on role
       if (newUser.role === "ADMIN") {
         router.push("/admin/dashboard");

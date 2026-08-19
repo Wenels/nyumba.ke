@@ -1,39 +1,39 @@
 import Link from "next/link";
+import { Building2, Search } from "lucide-react";
 
 export function LandlordCta() {
   return (
-    <section className="px-6 py-20">
-      <div className="mx-auto max-w-4xl overflow-hidden rounded-2xl bg-gradient-to-br from-primary via-primary/80 to-secondary p-12 text-center text-primary-foreground">
+    <section data-tour="landlord-cta" className="px-6 py-20">
+      <div className="mx-auto max-w-4xl overflow-hidden rounded-3xl bg-gradient-to-br from-primary via-primary/85 to-secondary p-10 sm:p-14 text-center text-primary-foreground shadow-2xl">
         <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">
-          Start your search today.
+          Ready to find your next home or list a property?
         </h2>
-        <p className="mt-3 text-primary-foreground/80 max-w-xl mx-auto">
-          Join thousands of tenants who found their perfect home through our
-          verified platform. Safe, fast, and transparent.
+        <p className="mt-3 text-primary-foreground/90 max-w-xl mx-auto text-sm sm:text-base leading-relaxed">
+          Join thousands of verified tenants and property owners on Kenya&apos;s direct rental platform. Safe, fast, and 0% agent commission.
         </p>
 
         <div className="mt-8 flex flex-wrap items-center justify-center gap-4">
           <Link
-            href="/map"
-            className="flex items-center gap-2 rounded-lg bg-background px-6 py-3 font-semibold text-primary hover:bg-background/90 transition-colors"
+            href="/register?role=TENANT"
+            className="flex items-center gap-2 rounded-xl bg-background px-6 py-3.5 font-bold text-primary hover:bg-background/90 transition-all shadow-lg text-sm"
           >
-            Explore the Map
+            <Search className="h-4 w-4" /> Find Your Home →
           </Link>
           <Link
-            href="/register"
-            className="flex items-center gap-2 rounded-lg border border-primary-foreground/30 bg-primary-foreground/10 px-6 py-3 font-semibold text-primary-foreground hover:bg-primary-foreground/20 transition-colors"
+            href="/register?role=LANDLORD"
+            className="flex items-center gap-2 rounded-xl border border-white/30 bg-white/10 px-6 py-3.5 font-bold text-white backdrop-blur-md hover:bg-white/20 transition-all text-sm"
           >
-            Create Free Account →
+            <Building2 className="h-4 w-4 text-secondary" /> Register as Landlord →
           </Link>
         </div>
 
-        <p className="mt-6 text-sm text-primary-foreground/60">
-          Are you a landlord?{" "}
+        <p className="mt-6 text-xs text-primary-foreground/75">
+          Already have an account?{" "}
           <Link
-            href="/register?role=LANDLORD"
-            className="font-semibold text-primary-foreground underline underline-offset-2 hover:no-underline"
+            href="/login"
+            className="font-bold text-white underline underline-offset-2 hover:no-underline"
           >
-            List your property for free
+            Sign in here
           </Link>
         </p>
       </div>

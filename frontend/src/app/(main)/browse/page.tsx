@@ -7,88 +7,22 @@ import Link from "next/link";
 import {
   Search, SlidersHorizontal, MapPin, BedDouble, Bath,
   ShieldCheck, ImageOff, Grid3X3, List, Map as MapIcon,
-  ChevronDown, X, Navigation, ArrowLeft
+  ChevronDown, X, ArrowLeft
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useListings } from "@/app/features/listings/hooks/use-listings";
 import { useDebounce } from "@/hooks/use-debounce";
 import type { Listing } from "@/app/features/listings/hooks/use-listings";
+import { GooglePropertyMap } from "@/components/ui/google-map";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
 const AREAS = ["Westlands", "Kilimani", "Karen", "Lavington", "Kasarani", "Roysambu", "Parklands", "Eastleigh"];
 const PROPERTY_TYPES = ["Bedsitter", "1 Bedroom", "2 Bedrooms", "3 Bedrooms", "4+ Bedrooms", "Bungalow", "Maisonette"];
 const SORT_OPTIONS = ["Newest", "Price: Low to High", "Price: High to Low"];
 
-function MapPanel({ listings }: { listings: Listing[] }) {
-  const mapRef = useRef<HTMLDivElement>(null);
-  const mapInstanceRef = useRef<any>(null);
 
-  useEffect(() => {
-    if (!mapRef.current) return;
 
-    import("leaflet").then((L) => {
-      if (!mapRef.current || (mapRef.current as any)._leaflet_id) {
-        // Update markers if map exists
-        if (mapInstanceRef.current) {
-          mapInstanceRef.current.eachLayer((layer: any) => {
-            if (layer instanceof L.Marker) mapInstanceRef.current.removeLayer(layer);
-          });
-          listings.forEach((listing) => {
-            if (!listing.latitude || !listing.longitude) return;
-            const icon = L.divIcon({
-              className: "",
-              html: `<div style="background:#1a5c3a;color:white;padding:3px 8px;border-radius:12px;font-size:11px;font-weight:600;white-space:nowrap;box-shadow:0 2px 6px rgba(0,0,0,0.3)">KSh ${Math.round(listing.price / 1000)}K</div>`,
-              iconAnchor: [25, 12],
-            });
-            L.marker([listing.latitude, listing.longitude], { icon })
-              .addTo(mapInstanceRef.current)
-              .bindPopup(`<b>${listing.title}</b><br/>${listing.address}`);
-          });
-        }
-        return;
-      }
-
-      delete (L.Icon.Default.prototype as any)._getIconUrl;
-      L.Icon.Default.mergeOptions({
-        iconRetinaUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png",
-        iconUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png",
-        shadowUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png",
-      });
-
-      const map = L.map(mapRef.current!, { center: [-1.2921, 36.8219], zoom: 12 });
-      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-        attribution: "© OpenStreetMap",
-      }).addTo(map);
-
-      listings.forEach((listing) => {
-        if (!listing.latitude || !listing.longitude) return;
-        const icon = L.divIcon({
-          className: "",
-          html: `<div style="background:#1a5c3a;color:white;padding:3px 8px;border-radius:12px;font-size:11px;font-weight:600;white-space:nowrap;box-shadow:0 2px 6px rgba(0,0,0,0.3)">KSh ${Math.round(listing.price / 1000)}K</div>`,
-          iconAnchor: [25, 12],
-        });
-        L.marker([listing.latitude, listing.longitude], { icon })
-          .addTo(map)
-          .bindPopup(`<b>${listing.title}</b><br/>${listing.address}`);
-      });
-
-      mapInstanceRef.current = map;
-      setTimeout(() => map.invalidateSize(), 100);
-    });
-
-    return () => {
-      if (mapInstanceRef.current) {
-        mapInstanceRef.current.remove();
-        mapInstanceRef.current = null;
-      }
-    };
-  }, []);
-
-  return (
-    <div ref={mapRef} className="h-full w-full" />
-  );
-}
 
 function BrowseContent() {
   const searchParams = useSearchParams();
@@ -327,14 +261,7 @@ function BrowseContent() {
         {/* Map panel */}
         {(showMap || view === "map") && (
           <div className={`relative flex-1 ${view !== "map" && "hidden sm:block"}`}>
-            <MapPanel listings={listings} />
-            {/* Nairobi Wards toggle */}
-            <div className="absolute top-3 right-3 z-10">
-              <button className="flex items-center gap-1.5 rounded-lg bg-primary px-3 py-2 text-xs font-semibold text-primary-foreground shadow-md hover:bg-primary/90 transition-colors">
-                <Navigation className="h-3.5 w-3.5" />
-                Nairobi Wards
-              </button>
-            </div>
+            <GooglePropertyMap listings={listings} isLoading={isLoading} heightClass="h-full w-full" />
           </div>
         )}
       </div>

@@ -55,11 +55,33 @@ export function Footer() {
                 nyumba<span className="text-secondary">.ke</span>
               </span>
             </Link>
+            <p className="mt-3 text-xs text-background/70 max-w-sm leading-relaxed">
+              Kenya&apos;s complete digital tenancy ecosystem. Streamlining property discovery, contracts, and M-Pesa STK rent payments.
+            </p>
           </div>
 
-          
+          <div className="space-y-3 text-xs">
+            <p className="font-bold uppercase tracking-wider text-secondary">Quick Links</p>
+            <ul className="space-y-2 text-background/80">
+              <li><Link href="/browse" className="hover:text-white transition-colors">Browse Properties</Link></li>
+              <li><Link href="/how-it-works" className="hover:text-white transition-colors">How It Works</Link></li>
+              <li><Link href="/contact" className="hover:text-white transition-colors">Contact Us</Link></li>
+              <li><Link href="/register?role=LANDLORD" className="hover:text-white transition-colors">List Your Property</Link></li>
+            </ul>
+          </div>
 
-          
+          <div className="space-y-3 text-xs">
+            <p className="font-bold uppercase tracking-wider text-secondary">Popular Areas</p>
+            <ul className="space-y-2 text-background/80">
+              {AREAS.map((area) => (
+                <li key={area}>
+                  <Link href={`/browse?area=${encodeURIComponent(area)}`} className="hover:text-white transition-colors">
+                    {area}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </div>
         </div>
 
         <div className="mt-12 flex flex-col gap-4 border-t border-background/10 pt-6 text-sm text-background/50 sm:flex-row sm:items-center sm:justify-between">

@@ -204,13 +204,21 @@ function PaymentsContent() {
                 <p className="text-sm text-muted-foreground mt-1">Your rent has been paid!</p>
               </div>
             ) : paymentStatus === "polling" ? (
-              <div className="rounded-xl border border-border p-6 text-center space-y-4">
+              <div className="rounded-xl border border-border p-6 text-center space-y-3">
                 <div className="mx-auto h-12 w-12 animate-spin rounded-full border-4 border-muted border-t-primary" />
                 <div>
                   <h3 className="font-bold text-lg">Waiting for M-Pesa</h3>
                   <p className="text-sm text-muted-foreground mt-1">Please enter your PIN on your phone to complete the payment.</p>
                 </div>
-                <Button variant="outline" className="w-full mt-4 border-dashed"
+                <div className="rounded-lg bg-amber-50 border border-amber-200 p-3 text-xs text-amber-800">
+                  Didn&apos;t receive the M-Pesa prompt? Check that your phone is on and has network, then tap below to resend.
+                </div>
+                <Button variant="outline" className="w-full gap-2 border-primary/30 text-primary"
+                  onClick={() => { setPaymentStatus("idle"); }}
+                >
+                  ↺ Resend M-Pesa Prompt
+                </Button>
+                <Button variant="outline" className="w-full mt-1 border-dashed text-xs text-muted-foreground"
                   onClick={() => simulatePaymentMutation.mutate()} loading={simulatePaymentMutation.isPending}>
                   Simulate Payment Success (Dev Only)
                 </Button>
@@ -252,10 +260,18 @@ function PaymentsContent() {
           {[...Array(4)].map((_, i) => <div key={i} className="h-16 animate-pulse rounded-xl bg-muted" />)}
         </div>
       ) : displayPayments.length === 0 ? (
-        <div className="rounded-xl border border-dashed border-border p-12 text-center">
-          <CalendarDays className="mx-auto h-8 w-8 text-muted-foreground" />
-          <p className="mt-3 font-semibold">No schedules found</p>
-          <p className="mt-1 text-sm text-muted-foreground">Rent schedules appear once your contract is active</p>
+        <div className="rounded-xl border border-dashed border-primary/30 bg-primary/5 p-12 text-center">
+          <CalendarDays className="mx-auto h-12 w-12 text-primary/60" />
+          <p className="mt-3 text-base font-bold text-foreground">No rent payment schedules found</p>
+          <p className="mt-1 text-sm text-muted-foreground max-w-md mx-auto">
+            Rent schedules and payment receipts will automatically appear here once your landlord issues your active lease agreement.
+          </p>
+          <a
+            href="/browse"
+            className="mt-4 inline-flex items-center gap-2 rounded-xl bg-primary px-5 py-2.5 text-xs font-bold text-primary-foreground hover:bg-primary/90 transition-all shadow-md"
+          >
+            Browse Available Houses to Rent →
+          </a>
         </div>
       ) : (
         <div className="space-y-2">

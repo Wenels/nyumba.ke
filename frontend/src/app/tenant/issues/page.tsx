@@ -76,7 +76,7 @@ function IssuesContent() {
       setShowModal(false);
       setForm({ listingId: "", category: "", subject: "", description: "", priority: "MODERATE", reportedTo: "LANDLORD" });
       setPhotos([]);
-      toast.success("Issue reported successfully!");
+      toast.success("Issue reported successfully!", { description: "Your landlord will review and respond within 24-48 hours." });
     },
     onError: () => toast.error("Failed to submit issue"),
   });
@@ -84,6 +84,10 @@ function IssuesContent() {
   const issues = issuesData?.issues ?? [];
   const stats = issuesData?.stats ?? { total: 0, open: 0, critical: 0, resolved: 0 };
   const contracts = contractsData?.contracts ?? [];
+
+  // Auto-fill primary active contract when modal opens
+  const activeContracts = contracts.filter((c: any) => c.status === "ACTIVE");
+  const autoListingId = activeContracts.length === 1 ? (activeContracts[0].propertyId || activeContracts[0].listing?.id) : "";
 
   return (
     <div className="space-y-6">
@@ -209,8 +213,13 @@ function IssuesContent() {
               {/* Property selector */}
               <div>
                 <Label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Property *</Label>
-                <select value={form.listingId} onChange={(e) => setForm({ ...form, listingId: e.target.value })}
-                  className="mt-1.5 w-full rounded-md border border-input bg-background px-3 py-2 text-sm">
+                {autoListingId && (
+                  <div className="mt-1.5 mb-1.5 rounded-lg bg-primary/5 border border-primary/20 px-3 py-2 text-xs text-primary font-semibold">
+                    ✓ Auto-selected: {activeContracts[0]?.listing?.title} — Unit {activeContracts[0]?.unit?.unitNumber || activeContracts[0]?.unitNumber || "assigned"}
+                  </div>
+                )}
+                <select value={form.listingId || autoListingId} onChange={(e) => setForm({ ...form, listingId: e.target.value })}
+                  className="mt-1 w-full rounded-md border border-input bg-background px-3 py-2 text-sm">
                   <option value="">Select Property</option>
                   {contracts.map((c: any) => (
                     <option key={c.id} value={c.propertyId || c.listing?.id}>

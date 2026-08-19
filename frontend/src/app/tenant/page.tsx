@@ -16,8 +16,10 @@ import {
 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
+import { useState } from "react";
 import { useAuth } from "@/app/features/auth/hooks/use-auth";
 import { api } from "@/lib/api";
+import { ProductTour, ProductTourTrigger, TENANT_TOUR_STEPS } from "@/components/ui/product-tour";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
 
@@ -30,6 +32,7 @@ function getGreeting() {
 
 export default function TenantOverviewPage() {
   const { user } = useAuth();
+  const [tourOpen, setTourOpen] = useState(false);
 
   const { data: bookingsData } = useQuery({
     queryKey: ["tenant-bookings"],
@@ -122,7 +125,7 @@ export default function TenantOverviewPage() {
         </p>
 
         {/* Mini stats */}
-        <div className="relative z-10 mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <div data-tour="tenant-quick-actions" className="relative z-10 mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
           {[
             {
               label: "Active Contracts",
@@ -176,7 +179,7 @@ export default function TenantOverviewPage() {
         {/* Left column */}
         <div className="space-y-6">
           {/* Recent Payments */}
-          <div className="rounded-xl border border-border bg-card overflow-hidden">
+          <div data-tour="tenant-payments-section" className="rounded-xl border border-border bg-card overflow-hidden">
             <div className="flex items-center justify-between border-b border-border px-5 py-4">
               <div className="flex items-center gap-3">
                 <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10">
@@ -354,12 +357,16 @@ export default function TenantOverviewPage() {
                   icon: DollarSign,
                   label: "Make Payment",
                   desc: "Pay rent online",
+                  badge: pendingPayments > 0 ? `${pendingPayments} DUE` : null,
+                  badgeBg: "bg-amber-100 text-amber-800 border-amber-200",
                 },
                 {
                   href: "/tenant/issues",
                   icon: AlertCircle,
                   label: "Report Issue",
                   desc: "Get help with maintenance",
+                  badge: openIssues > 0 ? `${openIssues} OPEN` : null,
+                  badgeBg: "bg-red-100 text-red-800 border-red-200",
                 },
                 {
                   href: "/tenant/inbox",
@@ -367,7 +374,7 @@ export default function TenantOverviewPage() {
                   label: "Messages",
                   desc: "Chat with landlords",
                 },
-              ].map(({ href, icon: Icon, label, desc }) => (
+              ].map(({ href, icon: Icon, label, desc, badge, badgeBg }) => (
                 <Link
                   key={href}
                   href={href}
@@ -378,7 +385,14 @@ export default function TenantOverviewPage() {
                       <Icon className="h-4 w-4 text-primary" />
                     </div>
                     <div>
-                      <p className="text-xs font-semibold">{label}</p>
+                      <div className="flex items-center gap-2">
+                        <p className="text-xs font-semibold">{label}</p>
+                        {badge && (
+                          <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold border ${badgeBg}`}>
+                            {badge}
+                          </span>
+                        )}
+                      </div>
                       <p className="text-xs text-muted-foreground">{desc}</p>
                     </div>
                   </div>
@@ -422,6 +436,10 @@ export default function TenantOverviewPage() {
           </div>
         </div>
       </div>
+
+      {/* Scenario A: Tenant Dashboard Tour */}
+      <ProductTour isOpen={tourOpen} onClose={() => setTourOpen(false)} steps={TENANT_TOUR_STEPS} />
+      <ProductTourTrigger onClick={() => setTourOpen(true)} label="Tenant Tour 🚀" />
     </div>
   );
 }

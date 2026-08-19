@@ -326,8 +326,12 @@ export default function TenantInboxPage() {
               {/* Header */}
               <div className="flex items-center justify-between border-b border-border px-5 py-3.5 bg-card">
                 <div className="flex items-center gap-3 min-w-0">
-                  <button type="button" onClick={() => setActiveId(null)} className="sm:hidden text-muted-foreground">
-                    <ArrowLeft className="h-5 w-5" />
+                  <button
+                    type="button"
+                    onClick={() => setActiveId(null)}
+                    className="sm:hidden flex items-center gap-1.5 rounded-lg border border-border px-2.5 py-1.5 text-xs font-semibold text-muted-foreground hover:text-foreground hover:border-foreground/30 transition-colors shrink-0"
+                  >
+                    <ArrowLeft className="h-3.5 w-3.5" /> All Messages
                   </button>
                   <Avatar className="h-9 w-9 shrink-0 border border-border">
                     <AvatarFallback className="bg-primary/10 text-primary text-xs font-bold">
@@ -445,8 +449,20 @@ export default function TenantInboxPage() {
                   Select Property *
                 </label>
                 {activeContracts.length === 0 ? (
-                  <div className="mt-2 rounded-xl border border-dashed border-border p-4 text-center text-xs text-muted-foreground">
-                    You have no active tenancy contracts or property bookings right now.
+                  <div className="mt-2 rounded-xl border border-dashed border-primary/30 bg-primary/5 p-4 text-center text-xs text-muted-foreground space-y-2">
+                    <p className="font-medium text-foreground">
+                      You have no active tenancy contracts or property bookings right now.
+                    </p>
+                    <p className="text-[11px] text-muted-foreground leading-relaxed">
+                      Looking to contact a landlord for a house you want to rent? Browse available listings to start an inquiry or book a unit.
+                    </p>
+                    <Link
+                      href="/browse"
+                      onClick={() => setShowNewModal(false)}
+                      className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs font-bold text-primary-foreground hover:bg-primary/90 transition-all shadow-xs mt-1"
+                    >
+                      Browse Listings to Rent →
+                    </Link>
                   </div>
                 ) : (
                   <select

@@ -132,6 +132,7 @@ export default function TenantLayout({
             key={href}
             href={href}
             onClick={onClick}
+            data-tour={`tenant-tab-${href.split("/").pop() || "overview"}`}
             title={collapsed ? label : undefined}
             className={`flex items-center rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-200 ${
               collapsed ? "justify-center gap-0" : "gap-3"
